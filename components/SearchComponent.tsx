@@ -1,15 +1,41 @@
 'use client';
 
-import { useState, FormEvent } from 'react';
+import { useState, FormEvent, useEffect } from 'react';
 import { useNostr } from '../app/contexts/NostrContext';
-import { MagnifyingGlassIcon } from '@heroicons/react/24/outline';
+import { MagnifyingGlassIcon, StopIcon } from '@heroicons/react/24/outline';
 import RelayStatus from './RelayStatus';
 
 export default function SearchComponent() {
-  const { searchNostr, isSearching, isLoggedIn, searchResults } = useNostr();
+  const { searchNostr, stopSearch, isSearching, isLoggedIn, searchResults } = useNostr();
   const [query, setQuery] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [hasSearched, setHasSearched] = useState(false);
+  const [countdown, setCountdown] = useState(21);
+
+  // Countdown timer effect
+  useEffect(() => {
+    let timer: NodeJS.Timeout;
+    
+    if (isSearching) {
+      setCountdown(21);
+      
+      timer = setInterval(() => {
+        setCountdown(prev => {
+          if (prev <= 1) {
+            clearInterval(timer);
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    } else {
+      setCountdown(21);
+    }
+    
+    return () => {
+      if (timer) clearInterval(timer);
+    };
+  }, [isSearching]);
 
   const handleSearch = async (e: FormEvent) => {
     e.preventDefault();
@@ -31,6 +57,10 @@ export default function SearchComponent() {
     } else {
       setError('Please log in to search');
     }
+  };
+
+  const handleStopSearch = () => {
+    stopSearch();
   };
 
   return (
@@ -87,7 +117,15 @@ export default function SearchComponent() {
             <div className="cyber-spinner-polygon"></div>
             <div className="cyber-spinner-polygon"></div>
           </div>
-          <span className="text-purple-400 font-mono text-sm">SEARCHING NOSTR NETWORK...</span>
+          <span className="text-purple-400 font-mono text-sm mb-3">SEARCHING NOSTR NETWORK...</span>
+          
+          <button 
+            onClick={handleStopSearch}
+            className="flex items-center bg-red-700 hover:bg-red-800 text-white px-4 py-2 rounded-md transition-all duration-300 cyber-glow border border-red-500/50 shadow-lg hover:shadow-red-900/50"
+          >
+            <StopIcon className="h-4 w-4 mr-2" />
+            <span className="font-mono text-sm">ABORT SEARCH [{countdown}s]</span>
+          </button>
         </div>
       )}
     </div>

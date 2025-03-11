@@ -5,7 +5,8 @@ import NDK, {
   NDKNip07Signer, 
   NDKUser, 
   NDKEvent, 
-  NDKRelay
+  NDKRelay,
+  NDKSubscription
 } from '@nostr-dev-kit/ndk';
 import { getRelayListForUser } from '@nostr-dev-kit/ndk';
 
@@ -28,12 +29,15 @@ interface NostrContextType {
   login: () => Promise<void>;
   logout: () => void;
   searchNostr: (query: string) => Promise<NDKEvent[]>;
+  stopSearch: () => void;
   searchResults: NDKEvent[];
   isSearching: boolean;
   relays: RelayStatus[];
   rawRelayList: string | null;
   isUsingCustomRelays: boolean;
   userFollows: Set<string>;
+  profileCache: Map<string, NDKUser>;
+  getProfile: (pubkey: string) => Promise<NDKUser | null>;
 }
 
 // Create the context with a default value
@@ -45,12 +49,15 @@ const NostrContext = createContext<NostrContextType>({
   login: async () => {},
   logout: () => {},
   searchNostr: async () => [],
+  stopSearch: () => {},
   searchResults: [],
   isSearching: false,
   relays: [],
   rawRelayList: null,
   isUsingCustomRelays: false,
   userFollows: new Set<string>(),
+  profileCache: new Map<string, NDKUser>(),
+  getProfile: async () => null,
 });
 
 // Custom hook to use the Nostr context
@@ -58,9 +65,10 @@ export const useNostr = () => useContext(NostrContext);
 
 // Default relay URLs as fallback
 const DEFAULT_RELAY_URLS = [
-  'wss://relay.damus.io',
   'wss://relay.nostr.band',
-  'wss://relay.snort.social',
+  'wss://relay.nostrcheck.me',
+  'wss://relay.noswhere.com',
+  'wss://bnc.netsec.vip',
 ];
 
 // Provider component to wrap the app
@@ -75,6 +83,8 @@ export const NostrProvider = ({ children }: { children: ReactNode }) => {
   const [rawRelayList, setRawRelayList] = useState<string | null>(null);
   const [isUsingCustomRelays, setIsUsingCustomRelays] = useState(false);
   const [userFollows, setUserFollows] = useState<Set<string>>(new Set());
+  const [activeSubscription, setActiveSubscription] = useState<NDKSubscription | null>(null);
+  const [profileCache, setProfileCache] = useState<Map<string, NDKUser>>(new Map());
 
   // Check if Nostr extension is available
   const hasNostrExtension = () => {
@@ -381,6 +391,12 @@ export const NostrProvider = ({ children }: { children: ReactNode }) => {
       return [];
     }
 
+    // If there's an active subscription, close it first
+    if (activeSubscription) {
+      activeSubscription.stop();
+      setActiveSubscription(null);
+    }
+
     setIsSearching(true);
     setSearchResults([]);
     
@@ -408,6 +424,18 @@ export const NostrProvider = ({ children }: { children: ReactNode }) => {
         closeOnEose: true 
       });
       
+      // Store the active subscription
+      setActiveSubscription(subscription);
+
+      // Set a timeout to automatically stop the search after 42 seconds
+      const searchTimeout = setTimeout(() => {
+        console.log('Search timeout reached, stopping search automatically');
+        if (subscription) {
+          subscription.stop();
+          setIsSearching(false);
+        }
+      }, 42000);
+      
       return new Promise<NDKEvent[]>((resolve) => {
         subscription.on('event', (event: NDKEvent) => {
           console.log('Received search result:', event.id);
@@ -418,34 +446,165 @@ export const NostrProvider = ({ children }: { children: ReactNode }) => {
           setSearchResults(sortedResults);
         });
         
-        subscription.on('eose', () => {
+        subscription.on('eose', async () => {
           console.log('Search complete, found:', results.length);
+          
+          // Clear the timeout since search completed naturally
+          clearTimeout(searchTimeout);
+          
+          // After getting all results, fetch author profiles
+          if (results.length > 0) {
+            await fetchProfilesForAuthors(results);
+          }
+          
           setIsSearching(false);
+          setActiveSubscription(null);
           // Do one final sort before completing
           const sortedResults = sortSearchResults(results);
           resolve(sortedResults);
         });
-
-        // Add timeout as a fallback
-        setTimeout(() => {
-          if (results.length === 0) {
-            console.log('Search timed out with no results');
-            setIsSearching(false);
-            resolve([]);
-          } else if (isSearching) {
-            // We got some results but never got EOSE
-            console.log('Search timeout reached with partial results:', results.length);
-            setIsSearching(false);
-            // Sort results before returning
-            const sortedResults = sortSearchResults(results);
-            resolve(sortedResults);
-          }
-        }, 10000);
       });
     } catch (error) {
       console.error('Search failed:', error);
       setIsSearching(false);
+      setActiveSubscription(null);
       return [];
+    }
+  };
+
+  // Fetch profile function with caching
+  const getProfile = async (pubkey: string): Promise<NDKUser | null> => {
+    if (!ndk) return null;
+    
+    try {
+      // If it's the current user, return user directly
+      if (user && user.pubkey === pubkey) {
+        return user;
+      }
+      
+      // Check if the profile is already cached
+      if (profileCache.has(pubkey)) {
+        console.log(`Using cached profile for ${pubkey}`);
+        return profileCache.get(pubkey) || null;
+      }
+      
+      console.log(`Fetching profile for ${pubkey}`);
+      
+      // Create a new NDKUser for this pubkey
+      const ndkUser = new NDKUser({ pubkey });
+      ndkUser.ndk = ndk;
+      
+      // Fetch the profile
+      await ndkUser.fetchProfile();
+      
+      // Add it to the cache
+      setProfileCache(prev => {
+        const newCache = new Map(prev);
+        newCache.set(pubkey, ndkUser);
+        return newCache;
+      });
+      
+      return ndkUser;
+    } catch (error) {
+      console.warn(`Failed to fetch profile for ${pubkey}:`, error);
+      return null;
+    }
+  };
+
+  // Fetch profiles for all authors in the search results
+  const fetchProfilesForAuthors = async (events: NDKEvent[]) => {
+    if (!ndk || events.length === 0) return;
+    
+    try {
+      console.log('Fetching profiles for authors...');
+      
+      // Get unique author pubkeys
+      const authorPubkeys = new Set<string>();
+      events.forEach(event => {
+        if (event.pubkey) {
+          authorPubkeys.add(event.pubkey);
+        }
+      });
+      
+      // Filter out pubkeys we already have in the cache
+      const pubkeysToFetch = Array.from(authorPubkeys).filter(
+        pubkey => !profileCache.has(pubkey) && (!user || user.pubkey !== pubkey)
+      );
+      
+      console.log(`Found ${authorPubkeys.size} unique authors, ${pubkeysToFetch.length} need to be fetched`);
+      
+      // Create NDKUser objects for each author
+      const authors = pubkeysToFetch.map(pubkey => {
+        const user = new NDKUser({ pubkey });
+        user.ndk = ndk;
+        return user;
+      });
+      
+      // Fetch profiles in batches to avoid overloading
+      const batchSize = 20;
+      
+      for (let i = 0; i < authors.length; i += batchSize) {
+        console.log(`Fetching profiles batch ${i / batchSize + 1}/${Math.ceil(authors.length / batchSize)}`);
+        
+        const batch = authors.slice(i, i + batchSize);
+        const profilePromises = batch.map(async author => {
+          try {
+            await author.fetchProfile();
+            // Add to cache
+            setProfileCache(prev => {
+              const newCache = new Map(prev);
+              newCache.set(author.pubkey, author);
+              return newCache;
+            });
+            return author;
+          } catch (error) {
+            console.warn(`Failed to fetch profile for ${author.pubkey}:`, error);
+            return null;
+          }
+        });
+        
+        await Promise.all(profilePromises);
+      }
+      
+      // Update event authors with fetched profiles
+      for (const event of events) {
+        if ((!event.author || !event.author.profile) && event.pubkey) {
+          // Check if it's the current user
+          if (user && event.pubkey === user.pubkey) {
+            event.author = user;
+          } else {
+            // Look up in cache first
+            const cachedUser = profileCache.get(event.pubkey);
+            if (cachedUser) {
+              event.author = cachedUser;
+            } else {
+              // Create a new user as fallback
+              const ndkUser = new NDKUser({ pubkey: event.pubkey });
+              ndkUser.ndk = ndk;
+              event.author = ndkUser;
+            }
+          }
+        }
+      }
+      
+      console.log('Finished fetching author profiles');
+      
+      // Update the search results state to trigger a re-render
+      const sortedResults = sortSearchResults([...events]);
+      setSearchResults(sortedResults);
+      
+    } catch (error) {
+      console.error('Error fetching author profiles:', error);
+    }
+  };
+
+  // Function to stop the search
+  const stopSearch = () => {
+    if (activeSubscription) {
+      console.log('Stopping search...');
+      activeSubscription.stop();
+      setActiveSubscription(null);
+      setIsSearching(false);
     }
   };
 
@@ -459,12 +618,15 @@ export const NostrProvider = ({ children }: { children: ReactNode }) => {
         login,
         logout,
         searchNostr,
+        stopSearch,
         searchResults,
         isSearching,
         relays,
         rawRelayList,
         isUsingCustomRelays,
         userFollows,
+        profileCache,
+        getProfile,
       }}
     >
       {children}

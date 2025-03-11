@@ -176,3 +176,29 @@ body {
   z-index: 1;
   opacity: 0.2;
 }
+
+/* Cyberpunk-inspired background with the provided image */
+.cyber-space-bg {
+  background-image: url('https://static.vecteezy.com/system/resources/previews/006/970/888/large_2x/digital-cyberspace-futuristic-purple-color-particles-wave-flowing-with-lines-and-dots-connection-technology-network-abstract-background-3d-rendering-free-photo.jpg');
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  position: relative;
+}
+
+.cyber-space-bg::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.69);
+  pointer-events: none;
+  z-index: 1;
+}
+
+.cyber-space-bg > * {
+  position: relative;
+  z-index: 2;
+}
