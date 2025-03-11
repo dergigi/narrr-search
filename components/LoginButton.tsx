@@ -39,9 +39,9 @@ export default function LoginButton() {
     return (
       <button
         disabled
-        className="px-4 py-2 rounded-md bg-gray-300 text-gray-600 cursor-not-allowed"
+        className="px-4 py-2 rounded-md bg-gray-800 text-gray-400 cursor-not-allowed font-mono border border-purple-500/30"
       >
-        Loading...
+        CONNECTING...
       </button>
     );
   }
@@ -50,7 +50,7 @@ export default function LoginButton() {
     return (
       <div className="flex items-center gap-3">
         {profilePicture ? (
-          <div className="w-8 h-8 rounded-full overflow-hidden">
+          <div className="w-9 h-9 rounded-md overflow-hidden border-2 border-purple-500 shadow-lg shadow-purple-900/40">
             <img 
               src={profilePicture} 
               alt="Profile" 
@@ -62,22 +62,22 @@ export default function LoginButton() {
             />
           </div>
         ) : (
-          <div className="w-8 h-8 rounded-full bg-purple-200 flex items-center justify-center">
-            <span className="text-purple-700 text-sm font-bold">
+          <div className="w-9 h-9 rounded-md bg-purple-900/50 border-2 border-purple-500 flex items-center justify-center shadow-lg shadow-purple-900/40">
+            <span className="text-purple-300 text-sm font-mono">
               {userName?.slice(0, 1) || user.npub?.slice(0, 2)}
             </span>
           </div>
         )}
         
-        <span className="text-sm text-gray-700 hidden sm:inline">
+        <span className="text-sm text-purple-300 hidden sm:inline font-mono">
           {userName || `${user.npub?.slice(0, 8)}...${user.npub?.slice(-4)}`}
         </span>
         
         <button
           onClick={logout}
-          className="px-4 py-2 rounded-md bg-red-600 text-white hover:bg-red-700 transition-colors"
+          className="px-4 py-2 rounded-md bg-gradient-to-r from-red-900 to-red-700 text-white hover:shadow-lg hover:shadow-red-900/50 transition-all duration-300 cyber-glow font-mono text-sm border border-red-500/50"
         >
-          Logout
+          DISCONNECT
         </button>
       </div>
     );
@@ -86,9 +86,9 @@ export default function LoginButton() {
   return (
     <button
       onClick={login}
-      className="px-4 py-2 rounded-md bg-purple-600 text-white hover:bg-purple-700 transition-colors"
+      className="px-5 py-2 rounded-md bg-gradient-to-r from-purple-800 to-purple-600 text-white border border-purple-500/50 hover:shadow-lg hover:shadow-purple-900/50 transition-all duration-300 cyber-glow font-mono"
     >
-      Login with Extension
+      AUTHENTICATE
     </button>
   );
 } 

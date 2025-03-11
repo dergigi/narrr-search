@@ -28,9 +28,12 @@ export default function SearchResults() {
   if (isSearching && displayResults.length === 0) {
     return (
       <div className="w-full max-w-2xl mx-auto my-8">
-        <div className="flex flex-col items-center justify-center p-8">
-          <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-purple-600 mb-4"></div>
-          <p className="text-gray-600">Searching across connected relays...</p>
+        <div className="flex flex-col items-center justify-center p-8 cyber-border rounded-lg">
+          <div className="cyber-spinner mb-4">
+            <div className="cyber-spinner-polygon"></div>
+            <div className="cyber-spinner-polygon"></div>
+          </div>
+          <p className="text-purple-400 font-mono">SEARCHING NOSTR NETWORK...</p>
         </div>
       </div>
     );
@@ -39,9 +42,9 @@ export default function SearchResults() {
   if (displayResults.length === 0 && initialized) {
     return (
       <div className="w-full max-w-2xl mx-auto my-8">
-        <div className="text-center text-gray-500 p-8 bg-white rounded-lg shadow-md">
-          <p className="mb-2">No results found.</p>
-          <p className="text-sm">Try a different search term or check if your connected relays support NIP-50 search.</p>
+        <div className="text-center p-8 cyber-border rounded-lg">
+          <p className="mb-3 text-purple-400 font-mono">SEARCH_COMPLETE: NO_RESULTS</p>
+          <p className="text-sm text-gray-400">Try a different search term or check if your connected relays support NIP-50 search.</p>
         </div>
       </div>
     );
@@ -58,74 +61,83 @@ export default function SearchResults() {
       if (profile?.name) return profile.name;
       return event.author?.npub?.slice(0, 8) + '...' + event.author?.npub?.slice(-4);
     } catch {
-      return 'Unknown author';
+      return 'UNKNOWN_USER';
     }
   };
 
   const getTimeAgo = (event: NDKEvent) => {
     try {
-      if (!event.created_at) return 'some time ago';
+      if (!event.created_at) return 'TIMESTAMP_UNKNOWN';
       return formatDistanceToNow(new Date(event.created_at * 1000), { addSuffix: true });
     } catch {
-      return 'some time ago';
+      return 'TIMESTAMP_ERROR';
     }
   };
   
   const getResultType = (event: NDKEvent) => {
     if (user && event.pubkey === user.pubkey) {
-      return 'Your note';
+      return 'YOUR_NOTE';
     } else if (userFollows.has(event.pubkey)) {
-      return 'From someone you follow';
+      return 'FOLLOWED_USER';
     }
-    return 'Other note';
+    return 'GLOBAL_NOTE';
   };
 
   return (
     <div className="w-full max-w-2xl mx-auto my-8 space-y-6">
-      <div className="flex justify-between items-center mb-4">
-        <h2 className="text-lg font-semibold text-gray-800">
-          Found {displayResults.length} result{displayResults.length === 1 ? '' : 's'}
+      <div className="flex justify-between items-center mb-4 cyber-border py-2 px-4 rounded-md">
+        <h2 className="text-lg font-mono text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-purple-600">
+          RESULTS<span className="ml-2">[{displayResults.length}]</span>
         </h2>
         {isSearching && (
           <div className="flex items-center">
-            <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-purple-600 mr-2"></div>
-            <span className="text-sm text-gray-500">Still searching...</span>
+            <div className="w-3 h-3 bg-purple-500 rounded-full mr-2 animate-pulse"></div>
+            <span className="text-xs text-purple-400 font-mono">SEARCHING...</span>
           </div>
         )}
       </div>
       
-      {displayResults.map((event) => (
-        <div key={event.id} className={`rounded-lg shadow-md p-4 hover:shadow-lg transition-shadow ${
-          user && event.pubkey === user.pubkey 
-            ? 'bg-purple-50 border-l-4 border-purple-600' 
-            : userFollows.has(event.pubkey)
-              ? 'bg-blue-50 border-l-4 border-blue-400'
-              : 'bg-white'
-        }`}>
-          <div className="flex justify-between mb-2">
-            <div className="font-medium text-purple-700">{getAuthorName(event)}</div>
-            <div className="text-sm text-gray-500">{getTimeAgo(event)}</div>
-          </div>
-          <div className="text-xs text-gray-500 mb-2">{getResultType(event)}</div>
-          <div className="text-gray-800 whitespace-pre-wrap break-words">
-            {event.content}
-          </div>
-          {event.tags?.length > 0 && (
-            <div className="mt-3 flex flex-wrap gap-2">
-              {event.tags
-                .filter((tag: string[]) => tag[0] === 't')
-                .map((tag: string[], i: number) => (
-                  <span 
-                    key={i} 
-                    className="inline-block bg-gray-100 rounded-full px-3 py-1 text-xs font-semibold text-gray-700"
-                  >
-                    #{tag[1]}
-                  </span>
-                ))}
+      <div className="space-y-4">
+        {displayResults.map((event, index) => (
+          <div 
+            key={event.id} 
+            className={`cyber-border rounded-lg p-4 transition-all duration-300 hover:shadow-lg hover:shadow-purple-900/30 ${
+              user && event.pubkey === user.pubkey 
+                ? 'border-l-4 border-l-purple-500 bg-gradient-to-r from-purple-900/20 to-gray-900/70' 
+                : userFollows.has(event.pubkey)
+                  ? 'border-l-4 border-l-blue-400 bg-gradient-to-r from-blue-900/20 to-gray-900/70'
+                  : 'bg-gray-900/70'
+            }`}
+            style={{ animationDelay: `${index * 100}ms` }}
+          >
+            <div className="flex justify-between mb-2">
+              <div className="font-medium text-purple-400 font-mono">{getAuthorName(event)}</div>
+              <div className="text-xs text-gray-400 font-mono">{getTimeAgo(event)}</div>
             </div>
-          )}
-        </div>
-      ))}
+            <div className="text-xs text-purple-300 font-mono mb-3 flex items-center">
+              <span className="inline-block w-2 h-2 bg-purple-500 mr-2"></span>
+              {getResultType(event)}
+            </div>
+            <div className="text-gray-300 font-light whitespace-pre-wrap break-words bg-black/20 p-3 rounded">
+              {event.content}
+            </div>
+            {event.tags?.length > 0 && (
+              <div className="mt-3 flex flex-wrap gap-2">
+                {event.tags
+                  .filter((tag: string[]) => tag[0] === 't')
+                  .map((tag: string[], i: number) => (
+                    <span 
+                      key={i} 
+                      className="inline-block bg-purple-900/30 border border-purple-500/30 rounded-md px-3 py-0.5 text-xs font-mono text-purple-300"
+                    >
+                      #{tag[1]}
+                    </span>
+                  ))}
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
     </div>
   );
 } 

@@ -15,41 +15,44 @@ export default function RelayStatus() {
   }
 
   return (
-    <div className="w-full max-w-2xl mx-auto mt-2 mb-6">
-      <div className="mb-2">
-        <h3 className="text-sm font-medium text-gray-500">
-          {isUsingCustomRelays ? 'Your Preferred Relays:' : 'Default Relays:'}
+    <div className="w-full max-w-2xl mx-auto mt-6 mb-6">
+      <div className="mb-3">
+        <h3 className="text-sm font-mono font-medium text-purple-400 flex items-center">
+          <span className="mr-2">&gt;</span>
+          {isUsingCustomRelays ? 'ACTIVE_RELAY_CONNECTIONS' : 'DEFAULT_RELAY_CONNECTIONS'}
         </h3>
       </div>
 
-      <div className="flex flex-wrap gap-2">
-        {relays.length > 0 ? (
-          relays.map((relay) => (
-            <div 
-              key={relay.url}
-              className={`py-1 px-3 rounded-full text-xs font-medium flex items-center ${
-                relay.connected 
-                  ? 'bg-green-100 text-green-800' 
-                  : relay.status === 'error'
-                    ? 'bg-red-100 text-red-800'
-                    : 'bg-gray-100 text-gray-800'
-              }`}
-            >
-              <span 
-                className={`w-2 h-2 rounded-full mr-1.5 ${
+      <div className="cyber-border rounded-lg p-4">
+        <div className="flex flex-wrap gap-2">
+          {relays.length > 0 ? (
+            relays.map((relay) => (
+              <div 
+                key={relay.url}
+                className={`py-1 px-3 rounded-md text-xs font-mono border flex items-center transition-all duration-300 ${
                   relay.connected 
-                    ? 'bg-green-500' 
+                    ? 'border-green-500 text-green-400 shadow-sm shadow-green-900/20 bg-green-900/10' 
                     : relay.status === 'error'
-                      ? 'bg-red-500'
-                      : 'bg-gray-500'
+                      ? 'border-red-500 text-red-400 shadow-sm shadow-red-900/20 bg-red-900/10'
+                      : 'border-purple-500/30 text-purple-300 bg-gray-900/50'
                 }`}
-              />
-              {formatRelayUrl(relay.url)}
-            </div>
-          ))
-        ) : (
-          <div className="text-sm text-gray-500">No relays connected</div>
-        )}
+              >
+                <span 
+                  className={`w-2 h-2 rounded-full mr-1.5 ${
+                    relay.connected 
+                      ? 'bg-green-500 animate-pulse' 
+                      : relay.status === 'error'
+                        ? 'bg-red-500'
+                        : 'bg-gray-500'
+                  }`}
+                />
+                {formatRelayUrl(relay.url)}
+              </div>
+            ))
+          ) : (
+            <div className="text-sm text-gray-300 font-mono">RELAY_CONNECTION_ERROR: NO_RELAYS_FOUND</div>
+          )}
+        </div>
       </div>
     </div>
   );

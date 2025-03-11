@@ -36,53 +36,58 @@ export default function SearchComponent() {
   return (
     <div className="w-full max-w-2xl mx-auto my-8">
       <form onSubmit={handleSearch} className="relative">
-        <input
-          type="text"
-          value={query}
-          onChange={(e) => {
-            setQuery(e.target.value);
-            if (error) setError(null);
-          }}
-          placeholder="Search for notes, articles, and posts..."
-          className={`w-full p-4 pl-12 pr-16 rounded-lg border text-gray-800 ${
-            error ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 focus:ring-purple-500'
-          } focus:outline-none focus:ring-2 focus:border-transparent`}
-          disabled={isSearching}
-        />
-        <div className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400">
+        <div className="cyber-border rounded-lg p-0.5 shadow-lg shadow-purple-900/20 transition-all duration-300 hover:shadow-purple-800/30">
+          <input
+            type="text"
+            value={query}
+            onChange={(e) => {
+              setQuery(e.target.value);
+              if (error) setError(null);
+            }}
+            placeholder="SEARCH//"
+            className={`w-full p-4 pl-12 pr-16 rounded-lg bg-gray-900 text-gray-200 ${
+              error ? 'border-red-500 focus:ring-red-500' : 'border-none focus:ring-purple-500/50'
+            } focus:outline-none focus:ring-2 font-mono placeholder-gray-500`}
+            disabled={isSearching}
+          />
+        </div>
+        <div className="absolute left-4 top-1/2 transform -translate-y-1/2 text-purple-500">
           <MagnifyingGlassIcon className="h-5 w-5" />
         </div>
         <button
           type="submit"
           disabled={isSearching || !query.trim()}
-          className={`absolute right-3 top-1/2 transform -translate-y-1/2 px-3 py-1.5 rounded-md ${
+          className={`absolute right-3 top-1/2 transform -translate-y-1/2 px-3 py-1.5 rounded-md transition-all duration-300 ${
             isSearching || !query.trim()
-              ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-              : 'bg-purple-600 text-white hover:bg-purple-700'
-          } transition-colors`}
+              ? 'bg-gray-700 text-gray-400 cursor-not-allowed'
+              : 'bg-purple-600 text-white hover:bg-purple-700 hover:shadow-lg hover:shadow-purple-900/50 cyber-glow'
+          }`}
         >
-          {isSearching ? 'Searching...' : 'Search'}
+          {isSearching ? 'SEARCHING' : 'SEARCH'}
         </button>
       </form>
       
       {error && (
-        <div className="mt-2 text-sm text-red-600">
-          {error}
+        <div className="mt-2 text-sm text-red-400 font-mono">
+          &gt; ERROR: {error}
         </div>
       )}
       
       {!isLoggedIn && (
-        <div className="mt-4 text-center text-sm text-gray-500">
-          Please login with your Nostr extension to search.
+        <div className="mt-4 text-center text-sm text-purple-400 font-mono cyber-glitch-text">
+          &gt; ACCESS REQUIRED: AUTHENTICATE VIA NOSTR PROTOCOL
         </div>
       )}
       
       {isLoggedIn && <RelayStatus />}
       
       {hasSearched && isSearching && (
-        <div className="mt-6 text-center">
-          <div className="inline-block animate-spin rounded-full h-6 w-6 border-t-2 border-b-2 border-purple-600 mr-2"></div>
-          <span className="text-gray-600">Searching across connected relays...</span>
+        <div className="mt-6 flex flex-col items-center justify-center">
+          <div className="cyber-spinner mb-3">
+            <div className="cyber-spinner-polygon"></div>
+            <div className="cyber-spinner-polygon"></div>
+          </div>
+          <span className="text-purple-400 font-mono text-sm">SEARCHING NOSTR NETWORK...</span>
         </div>
       )}
     </div>
