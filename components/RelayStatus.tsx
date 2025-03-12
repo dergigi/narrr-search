@@ -5,9 +5,10 @@ import { useNostr } from '../app/contexts/NostrContext';
 export default function RelayStatus() {
   const { relays, isLoggedIn, isUsingCustomRelays } = useNostr();
 
-  // Format relay URL for display, ensuring we remove wss:// prefix
+  // Format relay URL for display, ensuring we remove wss:// prefix and trailing slashes
   const formatRelayUrl = (url: string) => {
-    return url.replace(/^wss:\/\//i, '');
+    // Remove wss:// prefix and trim any trailing slashes
+    return url.replace(/^wss:\/\//i, '').replace(/\/+$/, '');
   };
 
   if (!isLoggedIn) {

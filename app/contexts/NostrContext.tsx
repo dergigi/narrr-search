@@ -69,6 +69,7 @@ const DEFAULT_RELAY_URLS = [
   'wss://relay.nostrcheck.me',
   'wss://relay.noswhere.com',
   'wss://bnc.netsec.vip',
+  'wss://relay.snort.social',
 ];
 
 // Provider component to wrap the app
@@ -144,7 +145,7 @@ export const NostrProvider = ({ children }: { children: ReactNode }) => {
     });
   };
 
-  // Initialize NDK with default relays
+  // Initialize NDK without default relays
   useEffect(() => {
     const init = async () => {
       try {
@@ -223,7 +224,10 @@ export const NostrProvider = ({ children }: { children: ReactNode }) => {
       if (userRelayList) {
         // Get relay URLs from the relay list
         // First try direct keys (most common structure)
-        const userRelayUrls: string[] = Object.keys(userRelayList).filter(url => url.startsWith('wss://'));
+        // Remove trailing slashes from relay URLs
+        const userRelayUrls: string[] = Object.keys(userRelayList)
+          .filter(url => url.startsWith('wss://'))
+          .map(url => url.replace(/\/+$/, ''));
         
         // If no proper URLs found in keys, try to extract them from the values
         if (userRelayUrls.length === 0) {
@@ -234,7 +238,8 @@ export const NostrProvider = ({ children }: { children: ReactNode }) => {
             if (value && typeof value === 'object') {
               const relayObj = value as Record<string, unknown>;
               if ('url' in relayObj && typeof relayObj.url === 'string' && relayObj.url.startsWith('wss://')) {
-                userRelayUrls.push(relayObj.url);
+                // Remove trailing slashes before adding
+                userRelayUrls.push((relayObj.url as string).replace(/\/+$/, ''));
               }
             }
           });
@@ -247,9 +252,15 @@ export const NostrProvider = ({ children }: { children: ReactNode }) => {
           // Replace the relay list completely with the user's preferred relays
           const newRelayList = userRelayUrls.map(url => {
             // Keep connection status if we already have this relay
-            const existingRelay = relays.find(r => r.url === url);
+            // Note: We need to check for the relay both with and without trailing slash
+            const urlWithoutTrailingSlash = url.replace(/\/+$/, '');
+            const existingRelay = relays.find(r => 
+              r.url === urlWithoutTrailingSlash || 
+              r.url.replace(/\/+$/, '') === urlWithoutTrailingSlash
+            );
+            
             return existingRelay || {
-              url,
+              url: urlWithoutTrailingSlash,
               connected: false,
               status: 'connecting' as const
             };
@@ -337,10 +348,12 @@ export const NostrProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  // Logout function
+  // Logout function - reset to empty relays array
   const logout = () => {
-    if (ndk) {
-      ndk.signer = undefined;
+    // Clean up subscriptions
+    if (activeSubscription) {
+      activeSubscription.stop();
+      setActiveSubscription(null);
     }
     setUser(null);
     setIsLoggedIn(false);
@@ -437,8 +450,20 @@ export const NostrProvider = ({ children }: { children: ReactNode }) => {
       }, 42000);
       
       return new Promise<NDKEvent[]>((resolve) => {
-        subscription.on('event', (event: NDKEvent) => {
-          console.log('Received search result:', event.id);
+        subscription.on('event', (event: NDKEvent, relay?: NDKRelay) => {
+          console.log('Received search result:', event.id, relay ? `from ${relay.url}` : '');
+          
+          // Track which relay this event came from
+          if (relay) {
+            // Add the relay URL to the event's custom properties
+            if (!event.hasOwnProperty('_relays')) {
+              // @ts-expect-error - Adding custom property to track relays
+              event._relays = new Set<string>();
+            }
+            // @ts-expect-error - Add this relay to the set
+            event._relays.add(relay.url);
+          }
+          
           // Add this event to our results
           results.push(event);
           // Sort and update the search results state in real-time
