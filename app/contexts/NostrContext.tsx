@@ -38,6 +38,8 @@ interface NostrContextType {
   userFollows: Set<string>;
   profileCache: Map<string, NDKUser>;
   getProfile: (pubkey: string) => Promise<NDKUser | null>;
+  currentQuery: string;
+  setCurrentQuery: (query: string) => void;
 }
 
 // Create the context with a default value
@@ -58,6 +60,8 @@ const NostrContext = createContext<NostrContextType>({
   userFollows: new Set<string>(),
   profileCache: new Map<string, NDKUser>(),
   getProfile: async () => null,
+  currentQuery: '',
+  setCurrentQuery: () => {},
 });
 
 // Custom hook to use the Nostr context
@@ -86,6 +90,7 @@ export const NostrProvider = ({ children }: { children: ReactNode }) => {
   const [userFollows, setUserFollows] = useState<Set<string>>(new Set());
   const [activeSubscription, setActiveSubscription] = useState<NDKSubscription | null>(null);
   const [profileCache, setProfileCache] = useState<Map<string, NDKUser>>(new Map());
+  const [currentQuery, setCurrentQuery] = useState<string>('');
 
   // Check if Nostr extension is available
   const hasNostrExtension = () => {
@@ -404,6 +409,9 @@ export const NostrProvider = ({ children }: { children: ReactNode }) => {
       return [];
     }
 
+    // Update the current query
+    setCurrentQuery(query);
+
     // If there's an active subscription, close it first
     if (activeSubscription) {
       activeSubscription.stop();
@@ -652,6 +660,8 @@ export const NostrProvider = ({ children }: { children: ReactNode }) => {
         userFollows,
         profileCache,
         getProfile,
+        currentQuery,
+        setCurrentQuery,
       }}
     >
       {children}

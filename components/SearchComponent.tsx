@@ -6,8 +6,7 @@ import { MagnifyingGlassIcon, StopIcon } from '@heroicons/react/24/outline';
 import RelayStatus from './RelayStatus';
 
 export default function SearchComponent() {
-  const { searchNostr, stopSearch, isSearching, isLoggedIn, searchResults } = useNostr();
-  const [query, setQuery] = useState('');
+  const { searchNostr, stopSearch, isSearching, isLoggedIn, searchResults, currentQuery, setCurrentQuery } = useNostr();
   const [error, setError] = useState<string | null>(null);
   const [hasSearched, setHasSearched] = useState(false);
   const [countdown, setCountdown] = useState(21);
@@ -39,7 +38,7 @@ export default function SearchComponent() {
 
   const handleSearch = async (e: FormEvent) => {
     e.preventDefault();
-    if (!query.trim()) {
+    if (!currentQuery.trim()) {
       setError('Please enter a search term');
       return;
     }
@@ -48,7 +47,7 @@ export default function SearchComponent() {
       setError(null);
       try {
         setHasSearched(true);
-        await searchNostr(query);
+        await searchNostr(currentQuery);
         console.log('Search completed with results:', searchResults.length);
       } catch (err) {
         console.error('Search error:', err);
@@ -69,9 +68,9 @@ export default function SearchComponent() {
         <div className="cyber-border rounded-lg p-0.5 shadow-lg shadow-purple-900/20 transition-all duration-300 hover:shadow-purple-800/30">
           <input
             type="text"
-            value={query}
+            value={currentQuery}
             onChange={(e) => {
-              setQuery(e.target.value);
+              setCurrentQuery(e.target.value);
               if (error) setError(null);
             }}
             placeholder="SEARCH//"
@@ -86,9 +85,9 @@ export default function SearchComponent() {
         </div>
         <button
           type="submit"
-          disabled={isSearching || !query.trim()}
+          disabled={isSearching || !currentQuery.trim()}
           className={`absolute right-3 top-1/2 transform -translate-y-1/2 px-3 py-1.5 rounded-md transition-all duration-300 ${
-            isSearching || !query.trim()
+            isSearching || !currentQuery.trim()
               ? 'bg-gray-700 text-gray-400 cursor-not-allowed'
               : 'bg-purple-600 text-white hover:bg-purple-700 hover:shadow-lg hover:shadow-purple-900/50 cyber-glow'
           }`}

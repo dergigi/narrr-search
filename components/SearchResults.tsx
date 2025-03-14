@@ -7,7 +7,7 @@ import { useState, useEffect } from 'react';
 import { ShieldCheckIcon, ShieldExclamationIcon, UserCircleIcon } from '@heroicons/react/24/solid';
 
 export default function SearchResults() {
-  const { searchResults, isSearching, isLoggedIn, user, userFollows, getProfile, profileCache } = useNostr();
+  const { searchResults, isSearching, isLoggedIn, user, userFollows, getProfile, profileCache, searchNostr } = useNostr();
   const [displayResults, setDisplayResults] = useState<NDKEvent[]>([]);
   const [initialized, setInitialized] = useState(false);
   const [authorProfiles, setAuthorProfiles] = useState<Map<string, NDKUser | null>>(new Map());
@@ -406,6 +406,93 @@ export default function SearchResults() {
     return filteredContent.trim();
   };
 
+  // Function to render content with clickable links and hashtags
+  const renderContent = (content: string) => {
+    if (!content) return null;
+    
+    // First filter out media URLs that are already being rendered
+    const filteredContent = filterMediaUrls(content);
+    
+    // Process the content in multiple steps
+    let processedContent = filteredContent;
+    const elements: JSX.Element[] = [];
+    let lastIndex = 0;
+    
+    // First process URLs
+    const urlRegex = /(https?:\/\/[^\s<]+)/g;
+    
+    // Then process hashtags - match #word patterns
+    const hashtagRegex = /#(\w+)/g;
+    
+    // Combined regex to match both URLs and hashtags
+    const combinedRegex = new RegExp(`${urlRegex.source}|${hashtagRegex.source}`, 'g');
+    
+    // If no URLs or hashtags found, just return the filtered content
+    if (!processedContent.match(combinedRegex)) {
+      return <>{processedContent}</>;
+    }
+    
+    // Process matches
+    processedContent.replace(combinedRegex, (match, urlMatch, hashtagMatch, offset) => {
+      // Add the text before the match
+      if (offset > lastIndex) {
+        elements.push(
+          <span key={`text-${offset}`}>
+            {processedContent.substring(lastIndex, offset)}
+          </span>
+        );
+      }
+      
+      // Check if it's a URL
+      if (match.startsWith('http')) {
+        // Add the URL as a link
+        elements.push(
+          <a 
+            key={`url-${offset}`}
+            href={match}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-purple-400 hover:text-purple-300 underline transition-colors duration-200"
+          >
+            {match}
+          </a>
+        );
+      } 
+      // Check if it's a hashtag
+      else if (match.startsWith('#')) {
+        // Extract the hashtag without the # symbol
+        const hashtag = match.substring(1);
+        
+        // Add the hashtag as a clickable element - searchNostr now updates currentQuery internally
+        elements.push(
+          <button 
+            key={`hashtag-${offset}`}
+            onClick={() => searchNostr(`#${hashtag}`)}
+            className="text-blue-400 hover:text-blue-300 hover:underline transition-colors duration-200 cursor-pointer font-semibold"
+          >
+            #{hashtag}
+          </button>
+        );
+      }
+      
+      // Update the last index
+      lastIndex = offset + match.length;
+      
+      return match; // This return value isn't used
+    });
+    
+    // Add any remaining text after the last match
+    if (lastIndex < processedContent.length) {
+      elements.push(
+        <span key={`text-end`}>
+          {processedContent.substring(lastIndex)}
+        </span>
+      );
+    }
+    
+    return <>{elements}</>;
+  };
+
   // Function to render media content
   const renderMedia = (event: NDKEvent) => {
     if (!event.content) return null;
@@ -619,7 +706,7 @@ export default function SearchResults() {
             )}
             
             <div className="text-gray-300 font-light whitespace-pre-wrap break-words bg-black/20 p-3 rounded">
-              {filterMediaUrls(event.content)}
+              {renderContent(event.content)}
             </div>
             
             {/* Render inline media content */}
