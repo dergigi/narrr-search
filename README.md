@@ -10,6 +10,8 @@ A pirate-themed, cyberpunk search engine for the Nostr network built with Next.j
 
 NARRR (Narcissistic Relay-Related Search) is a specialized search engine for the Nostr protocol. It allows you to search for content across the decentralized Nostr network, find notes, media, and connect with users in a pirate-themed cyberpunk interface.
 
+**🔗 Live App**: [NARRR Search](https://narrr-search.vercel.app)
+
 ### What is Nostr?
 
 [Nostr](https://nostr.com) (Notes and Other Stuff Transmitted by Relays) is a simple, open protocol that enables global, decentralized, and censorship-resistant social media. Unlike traditional platforms, Nostr:
@@ -30,6 +32,9 @@ NARRR (Narcissistic Relay-Related Search) is a specialized search engine for the
 - **Verified User Indicators**: Shows verification status using NIP-05 identifiers
 - **Custom Relay Support**: Uses your preferred relays when logged in
 - **Responsive Design**: Works seamlessly on mobile and desktop devices
+- **URL Deep-Linking**: Share search results via URL (e.g., `?q=bitcoin`)
+- **One-Click Sharing**: Copy search URLs to clipboard with the Share button
+- **Intelligent Content Display**: Media URLs are removed from text when rendered as media
 
 ## 🏗️ Technical Architecture
 
@@ -52,6 +57,8 @@ NARRR is built on a modern tech stack designed for performance and scalability:
 - **Client-Side Relay Communication**: Direct communication with Nostr relays
 - **Dynamic Relay Discovery**: Uses user's preferred relays when logged in
 - **Event Filtering and Caching**: Optimized event processing and display
+- **React Server Components**: For improved performance and lower bundle size
+- **Suspense & Streaming**: For enhanced loading states and user experience
 
 ## 🚀 Getting Started
 
@@ -105,8 +112,14 @@ yarn dev
    - Profile links open the user's nostr profile
    - Media can be viewed directly in the results
    - URLs open in new tabs for easy browsing
+   - Click on hashtags to perform a new search for that tag
 
-5. **Abort Search**: Click "ABORT SEARCH" to stop an ongoing search
+5. **Share Results**: Click the Share button next to the result count
+   - Copies the current search URL to your clipboard
+   - Perfect for sharing interesting searches with others
+   - Recipients can open the link to see the same search results
+
+6. **Abort Search**: Click "ABORT SEARCH" to stop an ongoing search
 
 ## 🧩 How It Works
 
@@ -130,6 +143,12 @@ yarn dev
 - **Local Storage**: Login state is saved locally for convenience
 - **Profile Caching**: User profiles are cached to improve performance
 
+### Deep Linking
+
+- **URL Parameters**: The app uses URL parameters (e.g., `?q=bitcoin`) to store search queries
+- **Sharable Links**: Users can copy and share these URLs to provide direct access to search results
+- **Stateful Navigation**: The browser's back/forward buttons work seamlessly with search history
+
 ## 🧪 Future Development
 
 - Enhanced filtering options for search results
@@ -137,10 +156,20 @@ yarn dev
 - More media types support
 - Advanced relay management
 - Dark/light theme toggle
+- Result export functionality
+- Custom search timeframes
 
 ## 🤝 Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request.
+
+### Development Workflow
+
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add some amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
 
 ## 📜 License
 
