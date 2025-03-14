@@ -299,7 +299,18 @@ export default function SearchResults() {
         return (
           <div className="flex items-center" title={`Verified: ${nip05Value}`}>
             <ShieldCheckIcon className="w-4 h-4 text-green-400 mr-1" />
-            <span className="text-xs text-green-400 truncate max-w-[150px]">{nip05Value}</span>
+            <button
+              onClick={() => {
+                // Search for the user's npub or pubkey
+                const searchTerm = event.author?.npub || event.pubkey;
+                if (searchTerm) {
+                  searchNostr(searchTerm);
+                }
+              }}
+              className="text-xs text-green-400 truncate max-w-[150px] hover:text-green-300 hover:underline cursor-pointer transition-colors duration-200"
+            >
+              {nip05Value}
+            </button>
           </div>
         );
       } else {
@@ -307,7 +318,18 @@ export default function SearchResults() {
         return (
           <div className="flex items-center" title={`Unverified: ${nip05Value}`}>
             <ShieldExclamationIcon className="w-4 h-4 text-red-400 mr-1" />
-            <span className="text-xs text-red-400 truncate max-w-[150px]">{nip05Value}</span>
+            <button
+              onClick={() => {
+                // Search for the user's npub or pubkey
+                const searchTerm = event.author?.npub || event.pubkey;
+                if (searchTerm) {
+                  searchNostr(searchTerm);
+                }
+              }}
+              className="text-xs text-red-400 truncate max-w-[150px] hover:text-red-300 hover:underline cursor-pointer transition-colors duration-200"
+            >
+              {nip05Value}
+            </button>
           </div>
         );
       }
