@@ -1,0 +1,94 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 500" width="500" height="500">
+  <!-- Dark Background with Circuit-like Grid -->
+  <rect width="500" height="500" fill="#121212"/>
+  <g stroke="#333333" stroke-width="1" opacity="0.3">
+    <!-- Horizontal grid lines -->
+    <line x1="0" y1="50" x2="500" y2="50"/>
+    <line x1="0" y1="100" x2="500" y2="100"/>
+    <line x1="0" y1="150" x2="500" y2="150"/>
+    <line x1="0" y1="200" x2="500" y2="200"/>
+    <line x1="0" y1="250" x2="500" y2="250"/>
+    <line x1="0" y1="300" x2="500" y2="300"/>
+    <line x1="0" y1="350" x2="500" y2="350"/>
+    <line x1="0" y1="400" x2="500" y2="400"/>
+    <line x1="0" y1="450" x2="500" y2="450"/>
+    
+    <!-- Vertical grid lines -->
+    <line x1="50" y1="0" x2="50" y2="500"/>
+    <line x1="100" y1="0" x2="100" y2="500"/>
+    <line x1="150" y1="0" x2="150" y2="500"/>
+    <line x1="200" y1="0" x2="200" y2="500"/>
+    <line x1="250" y1="0" x2="250" y2="500"/>
+    <line x1="300" y1="0" x2="300" y2="500"/>
+    <line x1="350" y1="0" x2="350" y2="500"/>
+    <line x1="400" y1="0" x2="400" y2="500"/>
+    <line x1="450" y1="0" x2="450" y2="500"/>
+  </g>
+  
+  <!-- Circuit Node Points -->
+  <circle cx="100" cy="100" r="4" fill="#ff9500"/>
+  <circle cx="200" cy="150" r="4" fill="#ff9500"/>
+  <circle cx="350" cy="100" r="4" fill="#ff9500"/>
+  <circle cx="400" cy="250" r="4" fill="#ff9500"/>
+  <circle cx="250" cy="350" r="4" fill="#ff9500"/>
+  <circle cx="150" cy="400" r="4" fill="#ff9500"/>
+  <circle cx="300" cy="400" r="4" fill="#ff9500"/>
+  
+  <!-- Circuit Connections -->
+  <g stroke="#ff9500" stroke-width="2" fill="none">
+    <path d="M100,100 L200,150 L350,100 L400,250 L250,350 L150,400 L300,400" 
+          stroke-dasharray="15,10" opacity="0.7"/>
+  </g>
+  
+  <!-- Stylized Pirate Flag -->
+  <g transform="translate(250, 250) scale(0.8) translate(-250, -250)">
+    <!-- Flag Pole -->
+    <rect x="130" y="100" width="10" height="300" fill="#8B4513"/>
+    
+    <!-- Flag -->
+    <path d="M140,110 L350,110 L350,250 L140,250 Z" fill="#000"/>
+    
+    <!-- Skull and Crossbones - Stylized and Cyberpunk -->
+    <g transform="translate(245, 180) scale(0.7)">
+      <!-- Skull -->
+      <circle cx="0" cy="0" r="40" fill="#ffaa00" opacity="0.9"/>
+      
+      <!-- Stylized "N" for NARRR, mimicking a lightning bolt -->
+      <path d="M-20,-25 L-5,0 L-20,25 L0,5 L20,-25 L5,0 L20,25" 
+            stroke="#000" stroke-width="8" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+  </g>
+  
+  <!-- Magnifying Glass (Search Element) -->
+  <g transform="translate(340, 330) rotate(-30)">
+    <circle cx="0" cy="0" r="50" fill="none" stroke="#ff5500" stroke-width="12" opacity="0.8"/>
+    <line x1="35" y1="35" x2="80" y2="80" stroke="#ff5500" stroke-width="12" stroke-linecap="round"/>
+  </g>
+  
+  <!-- Relay Nodes Effect (Decentralized Network Visualization) -->
+  <g opacity="0.6">
+    <circle cx="250" cy="250" r="120" fill="none" stroke="#ff9500" stroke-width="2" stroke-dasharray="10,5"/>
+    <circle cx="250" cy="250" r="180" fill="none" stroke="#ff9500" stroke-width="1" stroke-dasharray="5,10"/>
+    
+    <!-- Small Relay Nodes -->
+    <circle cx="250" cy="70" r="8" fill="#ff7700"/>
+    <circle cx="430" cy="250" r="8" fill="#ff7700"/>
+    <circle cx="250" cy="430" r="8" fill="#ff7700"/>
+    <circle cx="70" cy="250" r="8" fill="#ff7700"/>
+    <circle cx="180" cy="110" r="6" fill="#ff7700"/>
+    <circle cx="390" cy="180" r="6" fill="#ff7700"/>
+    <circle cx="320" cy="390" r="6" fill="#ff7700"/>
+    <circle cx="110" cy="320" r="6" fill="#ff7700"/>
+  </g>
+  
+  <!-- Glow Effect -->
+  <circle cx="250" cy="250" r="200" fill="url(#glow)" opacity="0.3"/>
+  
+  <!-- Gradient and Filters -->
+  <defs>
+    <radialGradient id="glow" cx="50%" cy="50%" r="50%" fx="50%" fy="50%">
+      <stop offset="0%" stop-color="#ff9500" stop-opacity="0.8"/>
+      <stop offset="100%" stop-color="#ff9500" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+</svg> 
