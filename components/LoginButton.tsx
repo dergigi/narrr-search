@@ -88,7 +88,7 @@ export default function LoginButton() {
       onClick={login}
       className="px-5 py-2 rounded-md bg-gradient-to-r from-purple-800 to-purple-600 text-white border border-purple-500/50 hover:shadow-lg hover:shadow-purple-900/50 transition-all duration-300 cyber-glow font-mono"
     >
-      AUTHENTICATE
+      AUTHENTICATE 🏴‍☠️
     </button>
   );
 } 

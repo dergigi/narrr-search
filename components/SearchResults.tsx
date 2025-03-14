@@ -87,7 +87,7 @@ export default function SearchResults() {
             <div className="cyber-spinner-polygon"></div>
             <div className="cyber-spinner-polygon"></div>
           </div>
-          <p className="text-purple-400 font-mono">SEARCHING NARRR NETWORK...</p>
+          <p className="text-purple-400 font-mono">SEARCHING NETWORK...</p>
         </div>
       </div>
     );
@@ -278,7 +278,7 @@ export default function SearchResults() {
   
   const getResultType = (event: NDKEvent) => {
     if (user && event.pubkey === user.pubkey) {
-      return 'YOUR_NOTE';
+      return 'YOUR_NOTE 🏴‍☠️';
     } else if (userFollows.has(event.pubkey)) {
       return 'FOLLOWED_USER';
     }
@@ -437,8 +437,8 @@ export default function SearchResults() {
   return (
     <div className="w-full max-w-2xl mx-auto my-8 space-y-6">
       <div className="flex justify-between items-center mb-4 cyber-border py-2 px-4 rounded-md">
-        <h2 className="text-lg font-mono text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-purple-600">
-          RESULTS<span className="ml-2">[{displayResults.length}{searchResults.length > 420 ? ` of ${searchResults.length}` : ''}]</span>
+        <h2 className="text-lg font-mono text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-purple-600 flex items-center">
+          <span className="mr-2">🏴‍☠️</span>RESULTS<span className="ml-2">[{displayResults.length}{searchResults.length > 420 ? ` of ${searchResults.length}` : ''}]</span>
         </h2>
         {isSearching && (
           <div className="flex items-center">
