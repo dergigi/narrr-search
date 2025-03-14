@@ -717,12 +717,13 @@ export default function SearchResults() {
                 {event.tags
                   .filter((tag: string[]) => tag[0] === 't')
                   .map((tag: string[], i: number) => (
-                    <span 
+                    <button 
                       key={i} 
-                      className="inline-block bg-purple-900/30 border border-purple-500/30 rounded-md px-3 py-0.5 text-xs font-mono text-purple-300"
+                      onClick={() => searchNostr(`#${tag[1]}`)}
+                      className="inline-block bg-purple-900/30 border border-purple-500/30 rounded-md px-3 py-0.5 text-xs font-mono text-purple-300 cursor-pointer hover:bg-purple-800/40 hover:border-purple-400/40 transition-colors duration-200"
                     >
                       #{tag[1]}
-                    </span>
+                    </button>
                   ))}
               </div>
             )}
