@@ -367,6 +367,45 @@ export default function SearchResults() {
     return mediaItems;
   };
 
+  // Function to filter out media URLs from content
+  const filterMediaUrls = (content: string): string => {
+    if (!content) return '';
+    
+    // Get media items
+    const mediaItems = parseMediaContent(content);
+    let filteredContent = content;
+    
+    // Collect all media URLs that need to be removed
+    const urlsToRemove: string[] = [
+      ...mediaItems.images,
+      ...mediaItems.videos
+    ];
+    
+    // Add YouTube URLs to the list of URLs to remove
+    mediaItems.youtubeEmbeds.forEach(videoId => {
+      // Check for both formats of YouTube URLs
+      const youtubeUrl1 = `https://youtube.com/watch?v=${videoId}`;
+      const youtubeUrl2 = `https://youtu.be/${videoId}`;
+      
+      urlsToRemove.push(youtubeUrl1);
+      urlsToRemove.push(youtubeUrl2);
+      
+      // Also check for www. variants
+      urlsToRemove.push(`https://www.youtube.com/watch?v=${videoId}`);
+    });
+    
+    // Remove each URL from the content
+    urlsToRemove.forEach(url => {
+      // Escape special regex characters in the URL
+      const escapedUrl = url.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      // Create a regex that matches the URL possibly followed by punctuation
+      const regex = new RegExp(`${escapedUrl}[.,;:!?]?\\s*`, 'g');
+      filteredContent = filteredContent.replace(regex, '');
+    });
+    
+    return filteredContent.trim();
+  };
+
   // Function to render media content
   const renderMedia = (event: NDKEvent) => {
     if (!event.content) return null;
@@ -580,7 +619,7 @@ export default function SearchResults() {
             )}
             
             <div className="text-gray-300 font-light whitespace-pre-wrap break-words bg-black/20 p-3 rounded">
-              {event.content}
+              {filterMediaUrls(event.content)}
             </div>
             
             {/* Render inline media content */}
