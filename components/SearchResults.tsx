@@ -602,6 +602,55 @@ function SearchResultsContent() {
     );
   };
 
+  // Function to detect SHA256 hashes in content
+  const detectSha256Hashes = (content: string): string[] => {
+    if (!content) return [];
+    
+    // SHA256 hashes are 64 characters long and consist of hexadecimal characters
+    const sha256Regex = /\b([a-f0-9]{64})\b/gi;
+    const matches = content.match(sha256Regex);
+    
+    return matches || [];
+  };
+  
+  // Function to convert SHA256 hash to a hex color (first 6 chars)
+  const hashToColor = (hash: string): string => {
+    // Take the first 6 characters of the hash as a color
+    return `#${hash.substring(0, 6)}`;
+  };
+  
+  // Function to render color squares for SHA256 hashes
+  const renderHashColors = (content: string) => {
+    const hashes = detectSha256Hashes(content);
+    
+    if (hashes.length === 0) return null;
+    
+    return (
+      <div className="mt-3 flex flex-wrap gap-2">
+        {hashes.map((hash, index) => {
+          const color = hashToColor(hash);
+          return (
+            <div
+              key={`hash-${index}`}
+              className="relative group"
+            >
+              <button
+                onClick={() => searchNostr(hash)}
+                className="w-6 h-6 border rounded border-gray-600 shadow-sm cursor-pointer transition-transform hover:scale-110"
+                style={{ backgroundColor: color }}
+                aria-label={`Search for SHA256 hash: ${hash}`}
+              />
+              <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-gray-800 text-xs font-mono rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-10 border border-purple-500/30">
+                <div>{color}</div>
+                <div className="truncate max-w-56">{hash}</div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
+
   return (
     <div className="w-full max-w-2xl mx-auto my-8 space-y-6">
       {showShareMessage && (
@@ -770,6 +819,9 @@ function SearchResultsContent() {
             
             {/* Render inline media content */}
             {renderMedia(event)}
+            
+            {/* Render SHA256 hash color squares if present */}
+            {renderHashColors(event.content)}
             
             {event.tags?.length > 0 && (
               <div className="mt-3 flex flex-wrap gap-2">
