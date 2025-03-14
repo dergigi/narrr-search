@@ -9,6 +9,7 @@ import NDK, {
   NDKSubscription
 } from '@nostr-dev-kit/ndk';
 import { getRelayListForUser } from '@nostr-dev-kit/ndk';
+import { useRouter, useSearchParams } from 'next/navigation';
 
 // Storage keys
 const STORAGE_KEY_LOGGED_IN = 'nostr-search:loggedIn';
@@ -78,6 +79,8 @@ const DEFAULT_RELAY_URLS = [
 
 // Provider component to wrap the app
 export const NostrProvider = ({ children }: { children: ReactNode }) => {
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const [ndk, setNdk] = useState<NDK | null>(null);
   const [user, setUser] = useState<NDKUser | null>(null);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -91,6 +94,29 @@ export const NostrProvider = ({ children }: { children: ReactNode }) => {
   const [activeSubscription, setActiveSubscription] = useState<NDKSubscription | null>(null);
   const [profileCache, setProfileCache] = useState<Map<string, NDKUser>>(new Map());
   const [currentQuery, setCurrentQuery] = useState<string>('');
+
+  // Check for search query in URL on initialization
+  useEffect(() => {
+    const queryParam = searchParams?.get('q');
+    if (queryParam) {
+      setCurrentQuery(queryParam);
+    }
+  }, [searchParams]);
+
+  // Check if logged in and run search from URL parameter if needed
+  useEffect(() => {
+    const checkUrlSearchParam = async () => {
+      const queryParam = searchParams?.get('q');
+      if (queryParam && isLoggedIn && ndk && !isLoading && !isSearching) {
+        console.log('Found search query in URL, executing search:', queryParam);
+        await searchNostr(queryParam);
+      }
+    };
+
+    if (isLoggedIn && !isLoading) {
+      checkUrlSearchParam();
+    }
+  }, [isLoggedIn, isLoading, ndk, searchParams]);
 
   // Check if Nostr extension is available
   const hasNostrExtension = () => {
@@ -412,6 +438,11 @@ export const NostrProvider = ({ children }: { children: ReactNode }) => {
     // Update the current query
     setCurrentQuery(query);
 
+    // Update URL with the search query without refreshing the page
+    const newUrl = new URL(window.location.href);
+    newUrl.searchParams.set('q', query);
+    window.history.pushState({}, '', newUrl.toString());
+    
     // If there's an active subscription, completely abort the previous search
     if (activeSubscription || isSearching) {
       console.log('Aborting previous search to start new search...');

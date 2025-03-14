@@ -4,12 +4,22 @@ import { useState, FormEvent, useEffect } from 'react';
 import { useNostr } from '../app/contexts/NostrContext';
 import { MagnifyingGlassIcon, StopIcon } from '@heroicons/react/24/outline';
 import RelayStatus from './RelayStatus';
+import { useSearchParams } from 'next/navigation';
 
 export default function SearchComponent() {
   const { searchNostr, stopSearch, isSearching, isLoggedIn, searchResults, currentQuery, setCurrentQuery } = useNostr();
   const [error, setError] = useState<string | null>(null);
   const [hasSearched, setHasSearched] = useState(false);
   const [countdown, setCountdown] = useState(21);
+  const searchParams = useSearchParams();
+
+  // Check if we have a search parameter that needs to be reflected in the UI
+  useEffect(() => {
+    const queryFromUrl = searchParams?.get('q');
+    if (queryFromUrl) {
+      setHasSearched(true);
+    }
+  }, [searchParams]);
 
   // Countdown timer effect
   useEffect(() => {
