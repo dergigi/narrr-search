@@ -412,10 +412,17 @@ export const NostrProvider = ({ children }: { children: ReactNode }) => {
     // Update the current query
     setCurrentQuery(query);
 
-    // If there's an active subscription, close it first
-    if (activeSubscription) {
-      activeSubscription.stop();
-      setActiveSubscription(null);
+    // If there's an active subscription, completely abort the previous search
+    if (activeSubscription || isSearching) {
+      console.log('Aborting previous search to start new search...');
+      if (activeSubscription) {
+        activeSubscription.stop();
+        setActiveSubscription(null);
+      }
+      // Ensure we reset the searching state properly
+      setIsSearching(false);
+      // Small delay to ensure clean state before starting new search
+      await new Promise(resolve => setTimeout(resolve, 10));
     }
 
     setIsSearching(true);
@@ -633,11 +640,15 @@ export const NostrProvider = ({ children }: { children: ReactNode }) => {
 
   // Function to stop the search
   const stopSearch = () => {
-    if (activeSubscription) {
+    if (activeSubscription || isSearching) {
       console.log('Stopping search...');
-      activeSubscription.stop();
-      setActiveSubscription(null);
+      if (activeSubscription) {
+        activeSubscription.stop();
+        setActiveSubscription(null);
+      }
+      // Always update the searching state
       setIsSearching(false);
+      console.log('Search stopped');
     }
   };
 
