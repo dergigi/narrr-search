@@ -3,11 +3,12 @@
 import { useNostr } from '../app/contexts/NostrContext';
 import { NDKEvent, NDKUser } from '@nostr-dev-kit/ndk';
 import { formatDistanceToNow } from 'date-fns';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { ShieldCheckIcon, ShieldExclamationIcon, UserCircleIcon, ShareIcon } from '@heroicons/react/24/solid';
 import { useSearchParams } from 'next/navigation';
 
-export default function SearchResults() {
+// Create a wrapper component that uses the search params
+function SearchResultsContent() {
   const { searchResults, isSearching, isLoggedIn, user, userFollows, getProfile, profileCache, searchNostr, currentQuery } = useNostr();
   const [displayResults, setDisplayResults] = useState<NDKEvent[]>([]);
   const [initialized, setInitialized] = useState(false);
@@ -789,5 +790,24 @@ export default function SearchResults() {
         ))}
       </div>
     </div>
+  );
+}
+
+// Main component with Suspense boundary
+export default function SearchResults() {
+  return (
+    <Suspense fallback={
+      <div className="w-full max-w-2xl mx-auto my-8">
+        <div className="flex flex-col items-center justify-center p-4 cyber-border rounded-lg">
+          <div className="cyber-spinner mb-2">
+            <div className="cyber-spinner-polygon"></div>
+            <div className="cyber-spinner-polygon"></div>
+          </div>
+          <p className="text-purple-400 font-mono text-sm">LOADING...</p>
+        </div>
+      </div>
+    }>
+      <SearchResultsContent />
+    </Suspense>
   );
 } 
