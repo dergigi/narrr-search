@@ -4,14 +4,20 @@ import { useNostr } from '../app/contexts/NostrContext';
 import { NDKEvent, NDKUser } from '@nostr-dev-kit/ndk';
 import { formatDistanceToNow } from 'date-fns';
 import { useState, useEffect } from 'react';
-import { ShieldCheckIcon, ShieldExclamationIcon, UserCircleIcon } from '@heroicons/react/24/solid';
+import { ShieldCheckIcon, ShieldExclamationIcon, UserCircleIcon, ShareIcon } from '@heroicons/react/24/solid';
+import { useSearchParams } from 'next/navigation';
 
 export default function SearchResults() {
-  const { searchResults, isSearching, isLoggedIn, user, userFollows, getProfile, profileCache, searchNostr } = useNostr();
+  const { searchResults, isSearching, isLoggedIn, user, userFollows, getProfile, profileCache, searchNostr, currentQuery } = useNostr();
   const [displayResults, setDisplayResults] = useState<NDKEvent[]>([]);
   const [initialized, setInitialized] = useState(false);
   const [authorProfiles, setAuthorProfiles] = useState<Map<string, NDKUser | null>>(new Map());
-
+  const [showShareMessage, setShowShareMessage] = useState(false);
+  const searchParams = useSearchParams();
+  
+  // Determine if we have an active search to show share button
+  const hasActiveSearch = currentQuery.trim() !== '' && searchParams?.has('q');
+  
   // Update display results whenever searchResults changes
   useEffect(() => {
     console.log('Search results updated:', searchResults.length);
@@ -22,6 +28,19 @@ export default function SearchResults() {
       setInitialized(true);
     }
   }, [searchResults]);
+
+  // Handle share button click
+  const handleShare = () => {
+    // Copy the current URL to clipboard
+    navigator.clipboard.writeText(window.location.href)
+      .then(() => {
+        setShowShareMessage(true);
+        setTimeout(() => setShowShareMessage(false), 3000);
+      })
+      .catch(err => {
+        console.error('Failed to copy URL:', err);
+      });
+  };
 
   // Preload profiles for all authors in the display results
   useEffect(() => {
@@ -276,13 +295,13 @@ export default function SearchResults() {
     }
   };
   
-  const getResultType = (event: NDKEvent) => {
+  const getNoteType = (event: NDKEvent) => {
     if (user && event.pubkey === user.pubkey) {
       return 'YOUR_NOTE 🏴‍☠️';
     } else if (userFollows.has(event.pubkey)) {
       return 'FOLLOWED_USER';
     }
-    return 'GLOBAL_NOTE';
+    return 'RANDOM_PERSON';
   };
 
   const renderVerificationStatus = (event: NDKEvent) => {
@@ -584,10 +603,27 @@ export default function SearchResults() {
 
   return (
     <div className="w-full max-w-2xl mx-auto my-8 space-y-6">
+      {showShareMessage && (
+        <div className="fixed top-5 right-5 bg-purple-900/80 text-white px-4 py-2 rounded-md shadow-lg border border-purple-500/50 z-50 font-mono text-sm animation-fade-in">
+          Search URL copied to clipboard!
+        </div>
+      )}
+      
       <div className="flex justify-between items-center mb-4 cyber-border py-2 px-4 rounded-md">
-        <h2 className="text-lg font-mono text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-purple-600 flex items-center">
-          <span className="mr-2">🏴‍☠️</span>RESULTS<span className="ml-2">[{displayResults.length}{searchResults.length > 420 ? ` of ${searchResults.length}` : ''}]</span>
-        </h2>
+        <div className="flex items-center">
+          <h2 className="text-lg font-mono text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-purple-600 flex items-center">
+            <span className="mr-2">🏴‍☠️</span>RESULTS<span className="ml-2">[{displayResults.length}{searchResults.length > 420 ? ` of ${searchResults.length}` : ''}]</span>
+          </h2>
+          {hasActiveSearch && (
+            <button 
+              onClick={handleShare}
+              className="ml-3 flex items-center text-purple-400 hover:text-purple-300 transition-colors duration-200 p-1 rounded"
+              title="Share this search"
+            >
+              <ShareIcon className="h-4 w-4" />
+            </button>
+          )}
+        </div>
         {isSearching && (
           <div className="flex items-center">
             <div className="w-3 h-3 bg-purple-500 rounded-full mr-2 animate-pulse"></div>
@@ -693,7 +729,7 @@ export default function SearchResults() {
                   </div>
                   <div className="text-xs text-purple-300 font-mono flex items-center">
                     <span className="inline-block w-2 h-2 bg-purple-500 mr-2"></span>
-                    {getResultType(event)}
+                    {getNoteType(event)}
                   </div>
                 </div>
               </div>
