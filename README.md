@@ -148,6 +148,6 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 ## ⚓ Acknowledgments
 
-- Built during SEC-04 sovereignengineering.io
-- Made with 🧡 and vibes by Gigi
+- Built during [SEC-04](https://sovereignengineering.io/)
+- Made with 🧡 and vibes by [Gigi](https://dergigi.com/)
 - Powered by the Nostr protocol and community
