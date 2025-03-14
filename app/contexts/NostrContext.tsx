@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useState, useContext, useEffect, ReactNode } from 'react';
+import { createContext, useState, useContext, useEffect, ReactNode, Suspense } from 'react';
 import NDK, { 
   NDKNip07Signer, 
   NDKUser, 
@@ -77,8 +77,8 @@ const DEFAULT_RELAY_URLS = [
   'wss://relay.snort.social',
 ];
 
-// Provider component to wrap the app
-export const NostrProvider = ({ children }: { children: ReactNode }) => {
+// Provider component that uses useSearchParams
+function NostrProviderContent({ children }: { children: ReactNode }) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [ndk, setNdk] = useState<NDK | null>(null);
@@ -708,5 +708,22 @@ export const NostrProvider = ({ children }: { children: ReactNode }) => {
     >
       {children}
     </NostrContext.Provider>
+  );
+}
+
+// Main Provider component wrapped in Suspense
+export const NostrProvider = ({ children }: { children: ReactNode }) => {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex flex-col items-center justify-center p-8 text-center bg-black">
+        <div className="cyber-spinner mb-4">
+          <div className="cyber-spinner-polygon"></div>
+          <div className="cyber-spinner-polygon"></div>
+        </div>
+        <p className="text-purple-400 font-mono">LOADING...</p>
+      </div>
+    }>
+      <NostrProviderContent>{children}</NostrProviderContent>
+    </Suspense>
   );
 }; 
