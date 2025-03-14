@@ -87,7 +87,7 @@ export default function SearchResults() {
             <div className="cyber-spinner-polygon"></div>
             <div className="cyber-spinner-polygon"></div>
           </div>
-          <p className="text-purple-400 font-mono">SEARCHING NOSTR NETWORK...</p>
+          <p className="text-purple-400 font-mono">SEARCHING NARRR NETWORK...</p>
         </div>
       </div>
     );
@@ -434,39 +434,6 @@ export default function SearchResults() {
     );
   };
 
-  // Function to get relay information for an event
-  const getRelayInfo = (event: NDKEvent) => {
-    // @ts-expect-error - Accessing custom property we added
-    const relays = event._relays as Set<string> | undefined;
-    
-    if (!relays || relays.size === 0) {
-      return null;
-    }
-    
-    // Format relay URLs to be more readable
-    const formattedRelays = Array.from(relays).map(url => {
-      // Remove protocol and trailing slashes
-      return url.replace(/^wss:\/\//, '').replace(/\/$/, '');
-    });
-    
-    // Sort relays alphabetically for consistent display
-    formattedRelays.sort();
-    
-    // If there are too many relays, show only the first few with a count
-    const MAX_DISPLAYED_RELAYS = 3;
-    if (formattedRelays.length > MAX_DISPLAYED_RELAYS) {
-      return {
-        displayed: formattedRelays.slice(0, MAX_DISPLAYED_RELAYS),
-        total: formattedRelays.length
-      };
-    }
-    
-    return {
-      displayed: formattedRelays,
-      total: formattedRelays.length
-    };
-  };
-
   return (
     <div className="w-full max-w-2xl mx-auto my-8 space-y-6">
       <div className="flex justify-between items-center mb-4 cyber-border py-2 px-4 rounded-md">
@@ -618,33 +585,6 @@ export default function SearchResults() {
             
             {/* Render inline media content */}
             {renderMedia(event)}
-            
-            {/* Display relay information */}
-            {getRelayInfo(event) && (
-              <div className="mt-3 flex flex-wrap items-center">
-                <span className="text-xs text-purple-300 font-mono mr-2 flex items-center">
-                  <span className="inline-block w-2 h-2 bg-green-500 mr-2 rounded-full"></span>
-                  RELAYS:
-                </span>
-                <div className="flex flex-wrap gap-1">
-                  {getRelayInfo(event)?.displayed.map((relay, i) => (
-                    <span 
-                      key={i} 
-                      className="inline-block bg-black/40 border border-purple-500/30 rounded-md px-2 py-0.5 text-xs font-mono text-purple-300"
-                      title={`wss://${relay}`}
-                    >
-                      {relay}
-                    </span>
-                  ))}
-                  {getRelayInfo(event) && 
-                   getRelayInfo(event)!.total > getRelayInfo(event)!.displayed.length && (
-                    <span className="inline-block bg-black/40 border border-purple-500/30 rounded-md px-2 py-0.5 text-xs font-mono text-gray-400">
-                      +{getRelayInfo(event)!.total - getRelayInfo(event)!.displayed.length} more
-                    </span>
-                  )}
-                </div>
-              </div>
-            )}
             
             {event.tags?.length > 0 && (
               <div className="mt-3 flex flex-wrap gap-2">

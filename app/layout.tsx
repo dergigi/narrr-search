@@ -6,8 +6,8 @@ import { NostrProvider } from "./contexts/NostrContext";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Nostr Search",
-  description: "A simple search tool for Nostr content",
+  title: "NARRR - Narcissistic Relay-Related Search",
+  description: "A search tool for Nostr content across your connected relays",
 };
 
 export default function RootLayout({

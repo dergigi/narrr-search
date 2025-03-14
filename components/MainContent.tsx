@@ -14,14 +14,14 @@ export default function MainContent() {
       <div className="absolute inset-0 bg-gradient-to-b from-purple-900/20 to-transparent pointer-events-none blur-2xl opacity-30 -z-10"></div>
       
       <div className="flex justify-between items-center mb-8">
-        <h1 className="text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-purple-600 font-mono cyber-glitch-text">NOSTR_SEARCH</h1>
+        <h1 className="text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-purple-600 font-mono cyber-glitch-text">NARRR</h1>
         <LoginButton />
       </div>
       
       {!isLoggedIn && (
         <div className="cyber-border rounded-xl shadow-lg shadow-purple-900/20 p-6 mb-8 text-gray-300">
           <p className="text-gray-300 mb-4">
-            Welcome to Nostr Search. Login with your Nostr browser extension to search
+            Welcome to NARRR (Narcissistic Relay-Related Search). Login with your Nostr browser extension to search
             content across your connected relays.
           </p>
           <div className="text-sm text-gray-400 font-mono">
