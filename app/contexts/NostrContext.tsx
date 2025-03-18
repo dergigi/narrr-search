@@ -432,12 +432,17 @@ function NostrProviderContent({ children }: { children: ReactNode }) {
 
   // Search function using NIP-50
   const searchNostr = async (query: string): Promise<NDKEvent[]> => {
-    console.log('searchNostr called with query:', query);
-    console.log('NDK instance:', ndk ? 'available' : 'null');
-    console.log('Is logged in:', isLoggedIn);
+    console.group('Nostr Search');
+    console.log('Query:', query);
+    console.log('NDK Status:', {
+      available: !!ndk,
+      connected: ndk?.pool?.relays?.size || 0,
+      relays: relays.map(r => ({ url: r.url, status: r.status }))
+    });
     
     if (!query.trim() || !ndk) {
-      console.log('Search aborted: empty query or no NDK instance');
+      console.log('Search aborted:', !query.trim() ? 'empty query' : 'no NDK instance');
+      console.groupEnd();
       setSearchResults([]);
       return [];
     }
@@ -454,8 +459,7 @@ function NostrProviderContent({ children }: { children: ReactNode }) {
     searchAbortController.current = new AbortController();
 
     try {
-      console.log('Starting search for:', query);
-      console.log('Using relays:', relays.map(r => r.url).join(', '));
+      console.log('Starting search...');
       
       const results = await ndk.fetchEvents({
         kinds: [1],
@@ -464,15 +468,15 @@ function NostrProviderContent({ children }: { children: ReactNode }) {
       });
 
       const resultsArray = Array.from(results);
-      console.log(`Found ${resultsArray.length} results`);
-      
-      // Log first 10 results
-      console.log('First 10 results:', resultsArray.slice(0, 10).map(event => ({
-        id: event.id,
-        pubkey: event.pubkey,
-        content: event.content?.slice(0, 100) + '...',
-        created_at: new Date(event.created_at! * 1000).toISOString()
-      })));
+      console.log('Search Results:', {
+        total: resultsArray.length,
+        first10: resultsArray.slice(0, 10).map(event => ({
+          id: event.id,
+          pubkey: event.pubkey,
+          content: event.content?.slice(0, 100) + '...',
+          created_at: new Date(event.created_at! * 1000).toISOString()
+        }))
+      });
       
       // Fetch profiles for all authors in the results
       await fetchProfilesForAuthors(resultsArray);
@@ -480,17 +484,34 @@ function NostrProviderContent({ children }: { children: ReactNode }) {
       // Sort the results
       const sortedResults = sortSearchResults(resultsArray);
       
+      console.log('Sorted Results:', {
+        total: sortedResults.length,
+        first10: sortedResults.slice(0, 10).map(event => ({
+          id: event.id,
+          pubkey: event.pubkey,
+          content: event.content?.slice(0, 100) + '...',
+          created_at: new Date(event.created_at! * 1000).toISOString()
+        }))
+      });
+      
       setSearchResults(sortedResults);
+      console.groupEnd();
       return sortedResults;
     } catch (error) {
       if (error instanceof Error) {
-        console.error('Search error:', error.name, error.message);
+        console.error('Search error:', {
+          name: error.name,
+          message: error.message,
+          stack: error.stack
+        });
         if (error.name === 'AbortError') {
           console.log('Search aborted');
+          console.groupEnd();
           return [];
         }
       }
       console.error('Error searching Nostr:', error);
+      console.groupEnd();
       setSearchResults([]);
       return [];
     } finally {
