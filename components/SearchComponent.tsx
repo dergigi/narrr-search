@@ -18,6 +18,7 @@ export default function SearchComponent() {
   useEffect(() => {
     const queryFromUrl = searchParams?.get('q');
     if (queryFromUrl) {
+      setSearchQuery(queryFromUrl);
       setHasSearched(true);
     }
   }, [searchParams]);
@@ -47,24 +48,19 @@ export default function SearchComponent() {
     };
   }, [isSearching]);
 
-  // Update search input when URL query parameter changes
-  useEffect(() => {
-    const queryParam = searchParams?.get('q');
-    if (queryParam) {
-      setSearchQuery(queryParam);
-    }
-  }, [searchParams]);
-
   const handleSearch = async () => {
     if (!searchQuery.trim()) return;
-    
-    // Update URL with the search query without refreshing the page
-    const newUrl = new URL(window.location.href);
-    newUrl.searchParams.set('q', searchQuery);
-    window.history.pushState({}, '', newUrl.toString());
-    
-    // Execute search
-    await searchNostr(searchQuery);
+    try {
+      // Update URL with search query
+      const url = new URL(window.location.href);
+      url.searchParams.set('q', searchQuery.trim());
+      window.history.pushState({}, '', url.toString());
+      
+      await searchNostr(searchQuery, 'web-of-trust');
+    } catch (error) {
+      console.error('Search failed:', error);
+      setError('Search failed. Please try again.');
+    }
   };
 
   const handleStopSearch = () => {
