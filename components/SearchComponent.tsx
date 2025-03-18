@@ -126,13 +126,6 @@ export default function SearchComponent() {
             <div className="cyber-spinner-polygon"></div>
           </div>
           <span className="text-purple-400 font-mono text-sm mb-3">SEARCHING NETWORK...</span>
-          
-          <button 
-            onClick={handleStopSearch}
-            className="flex items-center bg-red-700 hover:bg-red-800 text-white px-4 py-2 rounded-md transition-all duration-300 cyber-glow border border-red-500/50 shadow-lg hover:shadow-red-900/50"
-          >
-            <span className="font-mono text-sm">ABORT SEARCH</span>
-          </button>
         </div>
       )}
     </div>
