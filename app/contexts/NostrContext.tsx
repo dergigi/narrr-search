@@ -448,6 +448,7 @@ function NostrProviderContent({ children }: { children: ReactNode }) {
     searchAbortController.current = new AbortController();
 
     try {
+      console.log('Starting search for:', query);
       const results = await ndk.fetchEvents({
         kinds: [1],
         search: query,
@@ -455,6 +456,15 @@ function NostrProviderContent({ children }: { children: ReactNode }) {
       });
 
       const resultsArray = Array.from(results);
+      console.log(`Found ${resultsArray.length} results`);
+      
+      // Log first 10 results
+      console.log('First 10 results:', resultsArray.slice(0, 10).map(event => ({
+        id: event.id,
+        pubkey: event.pubkey,
+        content: event.content?.slice(0, 100) + '...',
+        created_at: new Date(event.created_at! * 1000).toISOString()
+      })));
       
       // Fetch profiles for all authors in the results
       await fetchProfilesForAuthors(resultsArray);
