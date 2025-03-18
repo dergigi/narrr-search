@@ -151,9 +151,12 @@ function NostrProviderContent({ children }: { children: ReactNode }) {
   const trackConnectedRelays = (url: string, connected: boolean, status: RelayStatus['status']) => {
     if (!url) return;
 
+    // Normalize the URL by removing trailing slashes
+    const normalizedUrl = url.replace(/\/+$/, '');
+
     setRelays(prev => {
-      // Find if this relay is already in our list
-      const existingIndex = prev.findIndex(r => r.url === url);
+      // Find if this relay is already in our list (checking normalized URLs)
+      const existingIndex = prev.findIndex(r => r.url.replace(/\/+$/, '') === normalizedUrl);
       
       if (existingIndex >= 0) {
         // Update existing relay
@@ -171,7 +174,7 @@ function NostrProviderContent({ children }: { children: ReactNode }) {
         }
         
         // Add new relay to list
-        return [...prev, { url, connected, status }];
+        return [...prev, { url: normalizedUrl, connected, status }];
       }
     });
   };
@@ -201,8 +204,9 @@ function NostrProviderContent({ children }: { children: ReactNode }) {
         await ndkInstance.connect();
         setNdk(ndkInstance);
         
-        // Initialize with default relays
-        setRelays(DEFAULT_RELAY_URLS.map(url => ({
+        // Initialize with default relays, ensuring no duplicates
+        const uniqueDefaultRelays = Array.from(new Set(DEFAULT_RELAY_URLS.map(url => url.replace(/\/+$/, ''))));
+        setRelays(uniqueDefaultRelays.map(url => ({
           url,
           connected: false,
           status: 'connecting',
@@ -255,13 +259,14 @@ function NostrProviderContent({ children }: { children: ReactNode }) {
       if (userRelayList) {
         // Get relay URLs from the relay list
         // First try direct keys (most common structure)
-        // Remove trailing slashes from relay URLs
-        const userRelayUrls: string[] = Object.keys(userRelayList)
+        // Remove trailing slashes from relay URLs and ensure uniqueness
+        const userRelayUrls = new Set<string>();
+        Object.keys(userRelayList)
           .filter(url => url.startsWith('wss://'))
-          .map(url => url.replace(/\/+$/, ''));
+          .forEach(url => userRelayUrls.add(url.replace(/\/+$/, '')));
         
         // If no proper URLs found in keys, try to extract them from the values
-        if (userRelayUrls.length === 0) {
+        if (userRelayUrls.size === 0) {
           const relayListObj = userRelayList as unknown as Record<string, unknown>;
           
           // Try to find URL properties in the values
@@ -270,28 +275,23 @@ function NostrProviderContent({ children }: { children: ReactNode }) {
               const relayObj = value as Record<string, unknown>;
               if ('url' in relayObj && typeof relayObj.url === 'string' && relayObj.url.startsWith('wss://')) {
                 // Remove trailing slashes before adding
-                userRelayUrls.push((relayObj.url as string).replace(/\/+$/, ''));
+                userRelayUrls.add((relayObj.url as string).replace(/\/+$/, ''));
               }
             }
           });
         }
         
-        if (userRelayUrls.length > 0) {
+        if (userRelayUrls.size > 0) {
           // Flag that we're using custom relays
           setIsUsingCustomRelays(true);
           
           // Replace the relay list completely with the user's preferred relays
-          const newRelayList = userRelayUrls.map(url => {
+          const newRelayList = Array.from(userRelayUrls).map(url => {
             // Keep connection status if we already have this relay
-            // Note: We need to check for the relay both with and without trailing slash
-            const urlWithoutTrailingSlash = url.replace(/\/+$/, '');
-            const existingRelay = relays.find(r => 
-              r.url === urlWithoutTrailingSlash || 
-              r.url.replace(/\/+$/, '') === urlWithoutTrailingSlash
-            );
+            const existingRelay = relays.find(r => r.url.replace(/\/+$/, '') === url);
             
             return existingRelay || {
-              url: urlWithoutTrailingSlash,
+              url,
               connected: false,
               status: 'connecting' as const
             };
