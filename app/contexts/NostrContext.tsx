@@ -404,7 +404,7 @@ function NostrProviderContent({ children }: { children: ReactNode }) {
   };
 
   // Sort function for search results based on the specified criteria
-  const sortSearchResults = (results: NDKEvent[], sortBy: 'web-of-trust' | 'recent' | 'oldest' = 'web-of-trust'): NDKEvent[] => {
+  const sortSearchResults = (results: NDKEvent[]): NDKEvent[] => {
     return [...results].sort((a, b) => {
       // User's own notes come first
       if (user && a.pubkey === user.pubkey && b.pubkey !== user.pubkey) {
@@ -454,8 +454,16 @@ function NostrProviderContent({ children }: { children: ReactNode }) {
         limit: 420
       });
 
-      setSearchResults(Array.from(results));
-      return Array.from(results);
+      const resultsArray = Array.from(results);
+      
+      // Fetch profiles for all authors in the results
+      await fetchProfilesForAuthors(resultsArray);
+      
+      // Sort the results
+      const sortedResults = sortSearchResults(resultsArray);
+      
+      setSearchResults(sortedResults);
+      return sortedResults;
     } catch (error) {
       if (error instanceof Error && error.name === 'AbortError') {
         console.log('Search aborted');
