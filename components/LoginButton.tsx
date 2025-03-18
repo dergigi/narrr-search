@@ -41,7 +41,7 @@ export default function LoginButton() {
         disabled
         className="px-4 py-2 rounded-md bg-gray-800 text-gray-400 cursor-not-allowed font-mono border border-purple-500/30"
       >
-        CONNECTING...
+        AUTHENTICATING...
       </button>
     );
   }
