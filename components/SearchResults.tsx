@@ -3,7 +3,7 @@
 import { useNostr } from '../app/contexts/NostrContext';
 import { NDKEvent, NDKUser } from '@nostr-dev-kit/ndk';
 import { formatDistanceToNow } from 'date-fns';
-import { useState, useEffect, Suspense } from 'react';
+import { useState, useEffect, Suspense, useCallback } from 'react';
 import { ShieldCheckIcon, ShieldExclamationIcon, UserCircleIcon, ShareIcon } from '@heroicons/react/24/solid';
 import { useSearchParams } from 'next/navigation';
 
@@ -18,7 +18,7 @@ function SearchResultsContent() {
   const searchParams = useSearchParams();
   
   // Sort function for search results based on the specified criteria
-  const sortSearchResults = (results: NDKEvent[], sortBy: 'web-of-trust' | 'recent' | 'oldest'): NDKEvent[] => {
+  const sortSearchResults = useCallback((results: NDKEvent[], sortBy: 'web-of-trust' | 'recent' | 'oldest'): NDKEvent[] => {
     return [...results].sort((a, b) => {
       if (sortBy === 'web-of-trust') {
         // User's own notes come first
@@ -50,7 +50,7 @@ function SearchResultsContent() {
         return (a.created_at || 0) - (b.created_at || 0);
       }
     });
-  };
+  }, [user, userFollows]);
   
   // Determine if we have an active search to show share button
   const hasActiveSearch = currentQuery.trim() !== '' && searchParams?.has('q');
