@@ -432,7 +432,12 @@ function NostrProviderContent({ children }: { children: ReactNode }) {
 
   // Search function using NIP-50
   const searchNostr = async (query: string): Promise<NDKEvent[]> => {
+    console.log('searchNostr called with query:', query);
+    console.log('NDK instance:', ndk ? 'available' : 'null');
+    console.log('Is logged in:', isLoggedIn);
+    
     if (!query.trim() || !ndk) {
+      console.log('Search aborted: empty query or no NDK instance');
       setSearchResults([]);
       return [];
     }
@@ -443,12 +448,15 @@ function NostrProviderContent({ children }: { children: ReactNode }) {
 
     // Abort any ongoing search
     if (searchAbortController.current) {
+      console.log('Aborting previous search');
       searchAbortController.current.abort();
     }
     searchAbortController.current = new AbortController();
 
     try {
       console.log('Starting search for:', query);
+      console.log('Using relays:', relays.map(r => r.url).join(', '));
+      
       const results = await ndk.fetchEvents({
         kinds: [1],
         search: query,
@@ -475,9 +483,12 @@ function NostrProviderContent({ children }: { children: ReactNode }) {
       setSearchResults(sortedResults);
       return sortedResults;
     } catch (error) {
-      if (error instanceof Error && error.name === 'AbortError') {
-        console.log('Search aborted');
-        return [];
+      if (error instanceof Error) {
+        console.error('Search error:', error.name, error.message);
+        if (error.name === 'AbortError') {
+          console.log('Search aborted');
+          return [];
+        }
       }
       console.error('Error searching Nostr:', error);
       setSearchResults([]);
