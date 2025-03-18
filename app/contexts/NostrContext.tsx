@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useState, useContext, useEffect, ReactNode, Suspense } from 'react';
+import { createContext, useState, useContext, useEffect, ReactNode, Suspense, useRef } from 'react';
 import NDK, { 
   NDKNip07Signer, 
   NDKUser, 
@@ -29,7 +29,7 @@ interface NostrContextType {
   isLoading: boolean;
   login: () => Promise<void>;
   logout: () => void;
-  searchNostr: (query: string, sortBy: 'web-of-trust' | 'recent' | 'oldest') => Promise<NDKEvent[]>;
+  searchNostr: (query: string) => Promise<NDKEvent[]>;
   stopSearch: () => void;
   searchResults: NDKEvent[];
   isSearching: boolean;
@@ -94,6 +94,7 @@ function NostrProviderContent({ children }: { children: ReactNode }) {
   const [activeSubscription, setActiveSubscription] = useState<NDKSubscription | null>(null);
   const [profileCache, setProfileCache] = useState<Map<string, NDKUser>>(new Map());
   const [currentQuery, setCurrentQuery] = useState<string>('');
+  const searchAbortController = useRef<AbortController>(new AbortController());
 
   // Check for search query in URL on initialization
   useEffect(() => {
@@ -430,116 +431,41 @@ function NostrProviderContent({ children }: { children: ReactNode }) {
   };
 
   // Search function using NIP-50
-  const searchNostr = async (query: string, sortBy: 'web-of-trust' | 'recent' | 'oldest' = 'web-of-trust'): Promise<NDKEvent[]> => {
-    if (!ndk || !query.trim()) {
+  const searchNostr = async (query: string): Promise<NDKEvent[]> => {
+    if (!query.trim() || !ndk) {
+      setSearchResults([]);
       return [];
-    }
-
-    // Update the current query
-    setCurrentQuery(query);
-
-    // Update URL with the search query without refreshing the page
-    const newUrl = new URL(window.location.href);
-    newUrl.searchParams.set('q', query);
-    window.history.pushState({}, '', newUrl.toString());
-    
-    // If there's an active subscription, completely abort the previous search
-    if (activeSubscription || isSearching) {
-      console.log('Aborting previous search to start new search...');
-      if (activeSubscription) {
-        activeSubscription.stop();
-        setActiveSubscription(null);
-      }
-      // Ensure we reset the searching state properly
-      setIsSearching(false);
-      // Small delay to ensure clean state before starting new search
-      await new Promise(resolve => setTimeout(resolve, 10));
     }
 
     setIsSearching(true);
+    setCurrentQuery(query);
     setSearchResults([]);
-    
-    try {
-      console.log('Searching for:', query);
-      
-      // Set up the search
-      const results: NDKEvent[] = [];
-      
-      // Create a filter for NIP-50 search - explicitly setting kind: 1 for notes
-      const filter = { kinds: [1], search: query };
-      
-      // Log which relays we're using for the search (either user's preferred or default)
-      if (ndk.pool?.relays) {
-        const connectedRelays = Array.from(ndk.pool.relays.entries())
-          .filter(([, relay]) => relay.status === 1) // 1 is connected status in NDK
-          .map(([url]) => url);
-        
-        console.log('Using connected relays for search:', connectedRelays);
-        console.log('Using custom relays:', isUsingCustomRelays);
-      }
-      
-      // Subscribe to search events with all available relays
-      const subscription = ndk.subscribe([filter], { 
-        closeOnEose: true 
-      });
-      
-      // Store the active subscription
-      setActiveSubscription(subscription);
 
-      // Set a timeout to automatically stop the search after 42 seconds
-      const searchTimeout = setTimeout(() => {
-        console.log('Search timeout reached, stopping search automatically');
-        if (subscription) {
-          subscription.stop();
-          setIsSearching(false);
-        }
-      }, 42000);
-      
-      return new Promise<NDKEvent[]>((resolve) => {
-        subscription.on('event', (event: NDKEvent, relay?: NDKRelay) => {
-          console.log('Received search result:', event.id, relay ? `from ${relay.url}` : '');
-          
-          // Track which relay this event came from
-          if (relay) {
-            // Add the relay URL to the event's custom properties
-            if (!event.hasOwnProperty('_relays')) {
-              // @ts-expect-error - Adding custom property to track relays
-              event._relays = new Set<string>();
-            }
-            // @ts-expect-error - Add this relay to the set
-            event._relays.add(relay.url);
-          }
-          
-          // Add this event to our results
-          results.push(event);
-          // Sort and update the search results state in real-time
-          const sortedResults = sortSearchResults(results, sortBy);
-          setSearchResults(sortedResults);
-        });
-        
-        subscription.on('eose', async () => {
-          console.log('Search complete, found:', results.length);
-          
-          // Clear the timeout since search completed naturally
-          clearTimeout(searchTimeout);
-          
-          // After getting all results, fetch author profiles
-          if (results.length > 0) {
-            await fetchProfilesForAuthors(results);
-          }
-          
-          setIsSearching(false);
-          setActiveSubscription(null);
-          // Do one final sort before completing
-          const sortedResults = sortSearchResults(results, sortBy);
-          resolve(sortedResults);
-        });
+    // Abort any ongoing search
+    if (searchAbortController.current) {
+      searchAbortController.current.abort();
+    }
+    searchAbortController.current = new AbortController();
+
+    try {
+      const results = await ndk.fetchEvents({
+        kinds: [1],
+        search: query,
+        limit: 420
       });
+
+      setSearchResults(Array.from(results));
+      return Array.from(results);
     } catch (error) {
-      console.error('Search failed:', error);
-      setIsSearching(false);
-      setActiveSubscription(null);
+      if (error instanceof Error && error.name === 'AbortError') {
+        console.log('Search aborted');
+        return [];
+      }
+      console.error('Error searching Nostr:', error);
+      setSearchResults([]);
       return [];
+    } finally {
+      setIsSearching(false);
     }
   };
 

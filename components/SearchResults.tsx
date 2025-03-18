@@ -67,14 +67,6 @@ function SearchResultsContent() {
     }
   }, [searchResults, sortBy, useWebOfTrust]);
 
-  // Update display results when sortBy or useWebOfTrust changes
-  useEffect(() => {
-    if (displayResults.length > 0) {
-      const sortedResults = sortSearchResults(displayResults, sortBy, useWebOfTrust);
-      setDisplayResults(sortedResults);
-    }
-  }, [sortBy, useWebOfTrust]);
-
   // Handle share button click
   const handleShare = () => {
     // Copy the current URL to clipboard
