@@ -12,6 +12,8 @@ export default function SearchComponent() {
   const [hasSearched, setHasSearched] = useState(false);
   const [countdown, setCountdown] = useState(21);
   const searchParams = useSearchParams();
+  const [searchQuery, setSearchQuery] = useState('');
+  const [sortBy, setSortBy] = useState<'web-of-trust' | 'recent' | 'oldest'>('web-of-trust');
 
   // Check if we have a search parameter that needs to be reflected in the UI
   useEffect(() => {
@@ -46,25 +48,13 @@ export default function SearchComponent() {
     };
   }, [isSearching]);
 
-  const handleSearch = async (e: FormEvent) => {
-    e.preventDefault();
-    if (!currentQuery.trim()) {
-      setError('Please enter a search term');
-      return;
-    }
-    
-    if (isLoggedIn) {
-      setError(null);
-      try {
-        setHasSearched(true);
-        await searchNostr(currentQuery);
-        console.log('Search completed with results:', searchResults.length);
-      } catch (err) {
-        console.error('Search error:', err);
-        setError('Failed to complete search. Please try again.');
-      }
-    } else {
-      setError('Please log in to search');
+  const handleSearch = async () => {
+    if (!searchQuery.trim()) return;
+    try {
+      await searchNostr(searchQuery, sortBy);
+    } catch (error) {
+      console.error('Search failed:', error);
+      setError('Search failed. Please try again.');
     }
   };
 
@@ -74,36 +64,47 @@ export default function SearchComponent() {
 
   return (
     <div className="w-full max-w-2xl mx-auto my-8">
-      <form onSubmit={handleSearch} className="relative">
-        <div className="cyber-border rounded-lg p-0.5 shadow-lg shadow-purple-900/20 transition-all duration-300 hover:shadow-purple-800/30">
+      <div className="flex flex-col sm:flex-row gap-4 w-full">
+        <div className="flex-1">
           <input
             type="text"
-            value={currentQuery}
-            onChange={(e) => {
-              setCurrentQuery(e.target.value);
-              if (error) setError(null);
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                handleSearch();
+              }
             }}
-            placeholder="SEARCH//"
-            className={`w-full p-4 pl-12 pr-16 rounded-lg bg-gray-900 text-gray-200 ${
-              error ? 'border-red-500 focus:ring-red-500' : 'border-none focus:ring-purple-500/50'
-            } focus:outline-none focus:ring-2 font-mono placeholder-gray-500`}
+            placeholder="Search the Nostr network..."
+            className="w-full px-4 py-2 bg-black border border-purple-500 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
           />
         </div>
-        <div className="absolute left-4 top-1/2 transform -translate-y-1/2 text-purple-500">
-          <MagnifyingGlassIcon className="h-5 w-5" />
+        <div className="flex gap-2">
+          <select
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value as 'web-of-trust' | 'recent' | 'oldest')}
+            className="px-4 py-2 bg-black border border-purple-500 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+          >
+            <option value="web-of-trust">Web of Trust</option>
+            <option value="recent">Most Recent</option>
+            <option value="oldest">Oldest First</option>
+          </select>
+          <button
+            onClick={handleSearch}
+            disabled={isSearching}
+            className="px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 focus:ring-offset-black disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          >
+            {isSearching ? (
+              <div className="flex items-center gap-2">
+                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                SEARCHING
+              </div>
+            ) : (
+              'SEARCH'
+            )}
+          </button>
         </div>
-        <button
-          type="submit"
-          disabled={!currentQuery.trim()}
-          className={`absolute right-3 top-1/2 transform -translate-y-1/2 px-3 py-1.5 rounded-md transition-all duration-300 ${
-            !currentQuery.trim()
-              ? 'bg-gray-700 text-gray-400 cursor-not-allowed'
-              : 'bg-purple-600 text-white hover:bg-purple-700 hover:shadow-lg hover:shadow-purple-900/50 cyber-glow'
-          }`}
-        >
-          SEARCH
-        </button>
-      </form>
+      </div>
       
       {error && (
         <div className="mt-2 text-sm text-red-400 font-mono">

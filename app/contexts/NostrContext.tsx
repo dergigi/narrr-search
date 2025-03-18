@@ -29,7 +29,7 @@ interface NostrContextType {
   isLoading: boolean;
   login: () => Promise<void>;
   logout: () => void;
-  searchNostr: (query: string) => Promise<NDKEvent[]>;
+  searchNostr: (query: string, sortBy: 'web-of-trust' | 'recent' | 'oldest') => Promise<NDKEvent[]>;
   stopSearch: () => void;
   searchResults: NDKEvent[];
   isSearching: boolean;
@@ -403,7 +403,7 @@ function NostrProviderContent({ children }: { children: ReactNode }) {
   };
 
   // Sort function for search results based on the specified criteria
-  const sortSearchResults = (results: NDKEvent[]): NDKEvent[] => {
+  const sortSearchResults = (results: NDKEvent[], sortBy: 'web-of-trust' | 'recent' | 'oldest' = 'web-of-trust'): NDKEvent[] => {
     return [...results].sort((a, b) => {
       // User's own notes come first
       if (user && a.pubkey === user.pubkey && b.pubkey !== user.pubkey) {
@@ -430,7 +430,7 @@ function NostrProviderContent({ children }: { children: ReactNode }) {
   };
 
   // Search function using NIP-50
-  const searchNostr = async (query: string): Promise<NDKEvent[]> => {
+  const searchNostr = async (query: string, sortBy: 'web-of-trust' | 'recent' | 'oldest' = 'web-of-trust'): Promise<NDKEvent[]> => {
     if (!ndk || !query.trim()) {
       return [];
     }
@@ -513,7 +513,7 @@ function NostrProviderContent({ children }: { children: ReactNode }) {
           // Add this event to our results
           results.push(event);
           // Sort and update the search results state in real-time
-          const sortedResults = sortSearchResults(results);
+          const sortedResults = sortSearchResults(results, sortBy);
           setSearchResults(sortedResults);
         });
         
@@ -531,7 +531,7 @@ function NostrProviderContent({ children }: { children: ReactNode }) {
           setIsSearching(false);
           setActiveSubscription(null);
           // Do one final sort before completing
-          const sortedResults = sortSearchResults(results);
+          const sortedResults = sortSearchResults(results, sortBy);
           resolve(sortedResults);
         });
       });
