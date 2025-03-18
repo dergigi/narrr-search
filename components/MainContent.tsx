@@ -4,35 +4,10 @@ import { useNostr } from "../app/contexts/NostrContext";
 import LoginButton from "./LoginButton";
 import SearchComponent from "./SearchComponent";
 import SearchResults from "./SearchResults";
-import { useSearchParams } from "next/navigation";
-import { useEffect } from "react";
 
 export default function MainContent() {
-  const { searchNostr, isSearching, searchResults, isLoggedIn, login, currentQuery } = useNostr();
-  const searchParams = useSearchParams();
+  const { isLoggedIn } = useNostr();
   
-  // Log when the component mounts and when search params change
-  useEffect(() => {
-    const queryParam = searchParams?.get('q');
-    if (queryParam) {
-      console.log('Server: Search query from URL:', queryParam);
-    }
-  }, [searchParams]);
-
-  // Log when search results change
-  useEffect(() => {
-    if (searchResults.length > 0) {
-      console.log('Server: Search results updated:', {
-        count: searchResults.length,
-        firstResult: {
-          id: searchResults[0].id,
-          pubkey: searchResults[0].pubkey,
-          content: searchResults[0].content?.slice(0, 100) + '...'
-        }
-      });
-    }
-  }, [searchResults]);
-
   return (
     <div className="relative z-10 max-w-4xl mx-auto">
       {/* Glow effect overlay */}

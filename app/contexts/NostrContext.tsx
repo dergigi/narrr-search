@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useState, useContext, useEffect, ReactNode, Suspense, useRef } from 'react';
+import { createContext, useState, useContext, useEffect, ReactNode, Suspense } from 'react';
 import NDK, { 
   NDKNip07Signer, 
   NDKUser, 
@@ -29,7 +29,7 @@ interface NostrContextType {
   isLoading: boolean;
   login: () => Promise<void>;
   logout: () => void;
-  searchNostr: (query: string) => Promise<NDKEvent[]>;
+  searchNostr: (query: string, sortBy: 'web-of-trust' | 'recent' | 'oldest') => Promise<NDKEvent[]>;
   stopSearch: () => void;
   searchResults: NDKEvent[];
   isSearching: boolean;
@@ -94,7 +94,6 @@ function NostrProviderContent({ children }: { children: ReactNode }) {
   const [activeSubscription, setActiveSubscription] = useState<NDKSubscription | null>(null);
   const [profileCache, setProfileCache] = useState<Map<string, NDKUser>>(new Map());
   const [currentQuery, setCurrentQuery] = useState<string>('');
-  const searchAbortController = useRef<AbortController>(new AbortController());
 
   // Check for search query in URL on initialization
   useEffect(() => {
@@ -404,7 +403,7 @@ function NostrProviderContent({ children }: { children: ReactNode }) {
   };
 
   // Sort function for search results based on the specified criteria
-  const sortSearchResults = (results: NDKEvent[]): NDKEvent[] => {
+  const sortSearchResults = (results: NDKEvent[], sortBy: 'web-of-trust' | 'recent' | 'oldest' = 'web-of-trust'): NDKEvent[] => {
     return [...results].sort((a, b) => {
       // User's own notes come first
       if (user && a.pubkey === user.pubkey && b.pubkey !== user.pubkey) {
@@ -431,102 +430,116 @@ function NostrProviderContent({ children }: { children: ReactNode }) {
   };
 
   // Search function using NIP-50
-  const searchNostr = async (query: string): Promise<NDKEvent[]> => {
-    console.log('\n=== Starting Nostr Search ===');
-    console.log('Query:', query);
-    console.log('NDK Status:', {
-      available: !!ndk,
-      connected: ndk?.pool?.relays?.size || 0,
-      relays: relays.map(r => ({ url: r.url, status: r.status }))
-    });
-    
-    if (!query.trim() || !ndk) {
-      console.log('Search aborted:', !query.trim() ? 'empty query' : 'no NDK instance');
-      console.log('=== Search Ended ===\n');
-      setSearchResults([]);
+  const searchNostr = async (query: string, sortBy: 'web-of-trust' | 'recent' | 'oldest' = 'web-of-trust'): Promise<NDKEvent[]> => {
+    if (!ndk || !query.trim()) {
       return [];
+    }
+
+    // Update the current query
+    setCurrentQuery(query);
+
+    // Update URL with the search query without refreshing the page
+    const newUrl = new URL(window.location.href);
+    newUrl.searchParams.set('q', query);
+    window.history.pushState({}, '', newUrl.toString());
+    
+    // If there's an active subscription, completely abort the previous search
+    if (activeSubscription || isSearching) {
+      console.log('Aborting previous search to start new search...');
+      if (activeSubscription) {
+        activeSubscription.stop();
+        setActiveSubscription(null);
+      }
+      // Ensure we reset the searching state properly
+      setIsSearching(false);
+      // Small delay to ensure clean state before starting new search
+      await new Promise(resolve => setTimeout(resolve, 10));
     }
 
     setIsSearching(true);
-    setCurrentQuery(query);
     setSearchResults([]);
-
-    // Set up a timeout for no results
-    const noResultsTimeout = setTimeout(() => {
-      if (searchResults.length === 0) {
-        console.log('No results found after 10 seconds');
-        console.log('=== Search Ended ===\n');
-      }
-    }, 10000);
-
-    // Abort any ongoing search
-    if (searchAbortController.current) {
-      console.log('Aborting previous search');
-      searchAbortController.current.abort();
-    }
-    searchAbortController.current = new AbortController();
-
+    
     try {
-      console.log('Starting search...');
+      console.log('Searching for:', query);
       
-      const results = await ndk.fetchEvents({
-        kinds: [1],
-        search: query,
-        limit: 420
-      });
-
-      const resultsArray = Array.from(results);
-      console.log('Search Results:', {
-        total: resultsArray.length,
-        first10: resultsArray.slice(0, 10).map(event => ({
-          id: event.id,
-          pubkey: event.pubkey,
-          content: event.content?.slice(0, 100) + '...',
-          created_at: new Date(event.created_at! * 1000).toISOString()
-        }))
-      });
+      // Set up the search
+      const results: NDKEvent[] = [];
       
-      // Fetch profiles for all authors in the results
-      await fetchProfilesForAuthors(resultsArray);
+      // Create a filter for NIP-50 search - explicitly setting kind: 1 for notes
+      const filter = { kinds: [1], search: query };
       
-      // Sort the results
-      const sortedResults = sortSearchResults(resultsArray);
-      
-      console.log('Sorted Results:', {
-        total: sortedResults.length,
-        first10: sortedResults.slice(0, 10).map(event => ({
-          id: event.id,
-          pubkey: event.pubkey,
-          content: event.content?.slice(0, 100) + '...',
-          created_at: new Date(event.created_at! * 1000).toISOString()
-        }))
-      });
-      
-      setSearchResults(sortedResults);
-      clearTimeout(noResultsTimeout);
-      console.log('=== Search Completed Successfully ===\n');
-      return sortedResults;
-    } catch (error) {
-      if (error instanceof Error) {
-        console.error('Search error:', {
-          name: error.name,
-          message: error.message,
-          stack: error.stack
-        });
-        if (error.name === 'AbortError') {
-          console.log('Search aborted');
-          clearTimeout(noResultsTimeout);
-          console.log('=== Search Ended ===\n');
-          return [];
-        }
+      // Log which relays we're using for the search (either user's preferred or default)
+      if (ndk.pool?.relays) {
+        const connectedRelays = Array.from(ndk.pool.relays.entries())
+          .filter(([, relay]) => relay.status === 1) // 1 is connected status in NDK
+          .map(([url]) => url);
+        
+        console.log('Using connected relays for search:', connectedRelays);
+        console.log('Using custom relays:', isUsingCustomRelays);
       }
-      console.error('Error searching Nostr:', error);
-      clearTimeout(noResultsTimeout);
-      console.log('=== Search Ended with Error ===\n');
-      setSearchResults([]);
-      return [];
-    } finally {
+      
+      // Subscribe to search events with all available relays
+      const subscription = ndk.subscribe([filter], { 
+        closeOnEose: true 
+      });
+      
+      // Store the active subscription
+      setActiveSubscription(subscription);
+
+      // Set a timeout to automatically stop the search after 42 seconds
+      const searchTimeout = setTimeout(() => {
+        console.log('Search timeout reached, stopping search automatically');
+        if (subscription) {
+          subscription.stop();
+          setIsSearching(false);
+        }
+      }, 42000);
+      
+      return new Promise<NDKEvent[]>((resolve) => {
+        subscription.on('event', (event: NDKEvent, relay?: NDKRelay) => {
+          console.log('Received search result:', event.id, relay ? `from ${relay.url}` : '');
+          
+          // Track which relay this event came from
+          if (relay) {
+            // Add the relay URL to the event's custom properties
+            if (!event.hasOwnProperty('_relays')) {
+              // @ts-expect-error - Adding custom property to track relays
+              event._relays = new Set<string>();
+            }
+            // @ts-expect-error - Add this relay to the set
+            event._relays.add(relay.url);
+          }
+          
+          // Add this event to our results
+          results.push(event);
+          // Sort and update the search results state in real-time
+          const sortedResults = sortSearchResults(results, sortBy);
+          setSearchResults(sortedResults);
+        });
+        
+        subscription.on('eose', async () => {
+          console.log('Search complete, found:', results.length);
+          
+          // Clear the timeout since search completed naturally
+          clearTimeout(searchTimeout);
+          
+          // After getting all results, fetch author profiles
+          if (results.length > 0) {
+            await fetchProfilesForAuthors(results);
+          }
+          
+          setIsSearching(false);
+          setActiveSubscription(null);
+          // Do one final sort before completing
+          const sortedResults = sortSearchResults(results, sortBy);
+          resolve(sortedResults);
+        });
+      });
+    } catch (error) {
+      console.error('Search failed:', error);
       setIsSearching(false);
+      setActiveSubscription(null);
+      return [];
     }
   };
 
