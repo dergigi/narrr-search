@@ -19,7 +19,7 @@ function SearchResultsContent() {
   const searchParams = useSearchParams();
   
   // Sort function for search results based on the specified criteria
-  const sortSearchResults = useCallback((results: NDKEvent[], sortBy: 'recent' | 'oldest', useWebOfTrust: boolean): NDKEvent[] => {
+  const sortSearchResults = (results: NDKEvent[], sortBy: 'recent' | 'oldest', useWebOfTrust: boolean): NDKEvent[] => {
     return [...results].sort((a, b) => {
       // First apply Web of Trust sorting if enabled
       if (useWebOfTrust) {
@@ -50,7 +50,7 @@ function SearchResultsContent() {
         return (a.created_at || 0) - (b.created_at || 0);
       }
     });
-  }, [user, userFollows]);
+  };
   
   // Determine if we have an active search to show share button
   const hasActiveSearch = currentQuery.trim() !== '' && searchParams?.has('q');
