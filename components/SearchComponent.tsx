@@ -50,7 +50,7 @@ export default function SearchComponent() {
   const handleSearch = async () => {
     if (!searchQuery.trim()) return;
     try {
-      await searchNostr(searchQuery);
+      await searchNostr(searchQuery, 'web-of-trust');
     } catch (error) {
       console.error('Search failed:', error);
       setError('Search failed. Please try again.');
