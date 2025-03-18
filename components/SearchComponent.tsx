@@ -49,17 +49,8 @@ export default function SearchComponent() {
   }, [isSearching]);
 
   const handleSearch = async () => {
-    if (!searchQuery.trim()) return;
-    try {
-      // Update URL with search query
-      const url = new URL(window.location.href);
-      url.searchParams.set('q', searchQuery.trim());
-      window.history.pushState({}, '', url.toString());
-      
-      await searchNostr(searchQuery, 'web-of-trust');
-    } catch (error) {
-      console.error('Search failed:', error);
-      setError('Search failed. Please try again.');
+    if (searchQuery.trim()) {
+      await searchNostr(searchQuery.trim(), 'web-of-trust', false);
     }
   };
 

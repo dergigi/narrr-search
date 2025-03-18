@@ -16,6 +16,7 @@ function SearchResultsContent() {
   const [showShareMessage, setShowShareMessage] = useState(false);
   const [sortBy, setSortBy] = useState<'recent' | 'oldest'>('recent');
   const [useWebOfTrust, setUseWebOfTrust] = useState(true);
+  const [showOnlyMyStuff, setShowOnlyMyStuff] = useState(false);
   const searchParams = useSearchParams();
   
   // Sort function for search results based on the specified criteria
@@ -138,6 +139,44 @@ function SearchResultsContent() {
     
     loadProfiles();
   }, [displayResults, getProfile]);
+
+  useEffect(() => {
+    if (currentQuery && !isSearching) {
+      searchNostr(currentQuery, sortBy, showOnlyMyStuff);
+    }
+  }, [currentQuery, sortBy, showOnlyMyStuff]);
+
+  const handleSearch = async () => {
+    if (currentQuery.trim()) {
+      await searchNostr(currentQuery.trim(), sortBy, showOnlyMyStuff);
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      handleSearch();
+    }
+  };
+
+  // Handle hashtag click
+  const handleHashtagClick = (hashtag: string) => {
+    searchNostr(`#${hashtag}`, sortBy, showOnlyMyStuff);
+  };
+
+  // Handle hash click
+  const handleHashClick = (hash: string) => {
+    searchNostr(hash, sortBy, showOnlyMyStuff);
+  };
+
+  // Handle tag click
+  const handleTagClick = (tag: string[]) => {
+    searchNostr(`#${tag[1]}`, sortBy, showOnlyMyStuff);
+  };
+
+  // Handle search term click
+  const handleSearchTermClick = (searchTerm: string) => {
+    searchNostr(searchTerm, sortBy, showOnlyMyStuff);
+  };
 
   if (!isLoggedIn) {
     return null;
@@ -370,7 +409,7 @@ function SearchResultsContent() {
                 // Search for the user's npub or pubkey
                 const searchTerm = event.author?.npub || event.pubkey;
                 if (searchTerm) {
-                  searchNostr(searchTerm);
+                  searchNostr(searchTerm, sortBy, showOnlyMyStuff);
                 }
               }}
               className="text-xs text-green-400 truncate max-w-[150px] hover:text-green-300 hover:underline cursor-pointer transition-colors duration-200"
@@ -389,7 +428,7 @@ function SearchResultsContent() {
                 // Search for the user's npub or pubkey
                 const searchTerm = event.author?.npub || event.pubkey;
                 if (searchTerm) {
-                  searchNostr(searchTerm);
+                  searchNostr(searchTerm, sortBy, showOnlyMyStuff);
                 }
               }}
               className="text-xs text-red-400 truncate max-w-[150px] hover:text-red-300 hover:underline cursor-pointer transition-colors duration-200"
@@ -456,7 +495,7 @@ function SearchResultsContent() {
   };
 
   // Function to filter out media URLs from content
-  const filterMediaUrls = (content: string): string => {
+  const filterMediaContent = (content: string): string => {
     if (!content) return '';
     
     // Get media items
@@ -499,7 +538,7 @@ function SearchResultsContent() {
     if (!content) return null;
     
     // First filter out media URLs that are already being rendered
-    const filteredContent = filterMediaUrls(content);
+    const filteredContent = filterMediaContent(content);
     
     // Process the content in multiple steps
     let processedContent = filteredContent;
@@ -555,7 +594,7 @@ function SearchResultsContent() {
         elements.push(
           <button 
             key={`hashtag-${offset}`}
-            onClick={() => searchNostr(`#${hashtag}`)}
+            onClick={() => handleHashtagClick(hashtag)}
             className="text-blue-400 hover:text-blue-300 hover:underline transition-colors duration-200 cursor-pointer font-semibold"
           >
             #{hashtag}
@@ -681,7 +720,7 @@ function SearchResultsContent() {
               className="relative group"
             >
               <button
-                onClick={() => searchNostr(hash)}
+                onClick={() => handleHashClick(hash)}
                 className="w-6 h-6 border rounded border-gray-600 shadow-sm cursor-pointer transition-transform hover:scale-110"
                 style={{ backgroundColor: color }}
                 aria-label={`Search for SHA256 hash: ${hash}`}
@@ -716,17 +755,31 @@ function SearchResultsContent() {
         </div>
         
         <div className="flex justify-between items-center">
-          <div className="flex items-center gap-2">
-            <input
-              type="checkbox"
-              id="web-of-trust"
-              checked={useWebOfTrust}
-              onChange={(e) => setUseWebOfTrust(e.target.checked)}
-              className="w-4 h-4 text-purple-600 bg-black border-purple-500 rounded focus:ring-purple-500 focus:ring-offset-2 focus:ring-offset-black"
-            />
-            <label htmlFor="web-of-trust" className="text-sm text-purple-400 font-mono">
-              Web of Trust
-            </label>
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                id="web-of-trust"
+                checked={useWebOfTrust}
+                onChange={(e) => setUseWebOfTrust(e.target.checked)}
+                className="w-4 h-4 text-purple-600 bg-black border-purple-500 rounded focus:ring-purple-500 focus:ring-offset-2 focus:ring-offset-black"
+              />
+              <label htmlFor="web-of-trust" className="text-sm text-purple-400 font-mono">
+                Web of Trust
+              </label>
+            </div>
+            <div className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                id="show-only-my-stuff"
+                checked={showOnlyMyStuff}
+                onChange={(e) => setShowOnlyMyStuff(e.target.checked)}
+                className="w-4 h-4 text-purple-600 bg-black border-purple-500 rounded focus:ring-purple-500 focus:ring-offset-2 focus:ring-offset-black"
+              />
+              <label htmlFor="show-only-my-stuff" className="text-sm text-purple-400 font-mono">
+                Show only my stuff
+              </label>
+            </div>
           </div>
           <select
             value={sortBy}
@@ -886,7 +939,7 @@ function SearchResultsContent() {
                     .map((tag: string[], i: number) => (
                       <button 
                         key={i} 
-                        onClick={() => searchNostr(`#${tag[1]}`)}
+                        onClick={() => handleTagClick(tag)}
                         className="inline-block bg-purple-900/30 border border-purple-500/30 rounded-md px-3 py-0.5 text-xs font-mono text-purple-300 cursor-pointer hover:bg-purple-800/40 hover:border-purple-400/40 transition-colors duration-200"
                       >
                         #{tag[1]}

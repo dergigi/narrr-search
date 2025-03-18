@@ -1,24 +1,50 @@
 'use client';
 
-import { createContext, useState, useContext, useEffect, ReactNode, Suspense } from 'react';
+import React, { createContext, useState, useContext, useEffect, ReactNode, Suspense, useRef } from 'react';
 import NDK, { 
   NDKNip07Signer, 
   NDKUser, 
   NDKEvent, 
   NDKRelay,
-  NDKSubscription
+  NDKSubscription,
+  NDKFilter,
+  NDKRelaySet,
+  NDKRelayStatus,
+  type NDKCacheAdapter
 } from '@nostr-dev-kit/ndk';
+import NDKCacheAdapterDexie from '@nostr-dev-kit/ndk-cache-dexie';
 import { getRelayListForUser } from '@nostr-dev-kit/ndk';
 import { useRouter, useSearchParams } from 'next/navigation';
 
 // Storage keys
 const STORAGE_KEY_LOGGED_IN = 'nostr-search:loggedIn';
 
+// Default relay URLs as fallback
+const DEFAULT_RELAY_URLS = process.env.NODE_ENV === 'development' 
+  ? ['wss://relay.nostr.band']
+  : [
+      'wss://relay.nostr.band',
+      'wss://relay.nostrcheck.me',
+      'wss://relay.noswhere.com',
+      'wss://bnc.netsec.vip',
+      'wss://relay.snort.social',
+      'wss://relay.damus.io',
+      'wss://relay.primal.net',
+    ];
+
+// Outbox relay URLs for better content distribution
+const OUTBOX_RELAY_URLS = process.env.NODE_ENV === 'development'
+  ? ['wss://relay.nostr.band']
+  : [
+      'wss://purplepag.es',
+      'wss://relay.primal.net',
+    ];
+
 // Interface for relay status
 interface RelayStatus {
   url: string;
   connected: boolean;
-  status: 'connecting' | 'connected' | 'disconnected' | 'error';
+  status: NDKRelayStatus;
 }
 
 // Interface for our Nostr context
@@ -29,7 +55,7 @@ interface NostrContextType {
   isLoading: boolean;
   login: () => Promise<void>;
   logout: () => void;
-  searchNostr: (query: string, sortBy: 'web-of-trust' | 'recent' | 'oldest') => Promise<NDKEvent[]>;
+  searchNostr: (query: string, sortBy: 'web-of-trust' | 'recent' | 'oldest', showOnlyMyStuff: boolean) => Promise<NDKEvent[]>;
   stopSearch: () => void;
   searchResults: NDKEvent[];
   isSearching: boolean;
@@ -68,17 +94,17 @@ const NostrContext = createContext<NostrContextType>({
 // Custom hook to use the Nostr context
 export const useNostr = () => useContext(NostrContext);
 
-// Default relay URLs as fallback
-const DEFAULT_RELAY_URLS = [
-  'wss://relay.nostr.band',
-  'wss://relay.nostrcheck.me',
-  'wss://relay.noswhere.com',
-  'wss://bnc.netsec.vip',
-  'wss://relay.snort.social',
-];
+// Add debug logging utility
+const debug = (component: string, message: string, data?: any) => {
+  if (process.env.NODE_ENV === 'development') {
+    console.log(`[${component}] ${message}`, data || '');
+  }
+};
 
 // Provider component that uses useSearchParams
 function NostrProviderContent({ children }: { children: ReactNode }) {
+  debug('NostrProvider', 'Initializing provider');
+  
   const router = useRouter();
   const searchParams = useSearchParams();
   const [ndk, setNdk] = useState<NDK | null>(null);
@@ -94,10 +120,14 @@ function NostrProviderContent({ children }: { children: ReactNode }) {
   const [activeSubscription, setActiveSubscription] = useState<NDKSubscription | null>(null);
   const [profileCache, setProfileCache] = useState<Map<string, NDKUser>>(new Map());
   const [currentQuery, setCurrentQuery] = useState<string>('');
+  
+  debug('NostrProvider', 'Setting up searchAbortController');
+  const searchAbortController = useRef<AbortController>(new AbortController());
 
   // Check for search query in URL on initialization
   useEffect(() => {
     const queryParam = searchParams?.get('q');
+    debug('NostrProvider', 'URL query param:', queryParam);
     if (queryParam) {
       setCurrentQuery(queryParam);
     }
@@ -107,9 +137,17 @@ function NostrProviderContent({ children }: { children: ReactNode }) {
   useEffect(() => {
     const checkUrlSearchParam = async () => {
       const queryParam = searchParams?.get('q');
+      debug('NostrProvider', 'Checking URL search param:', {
+        queryParam,
+        isLoggedIn,
+        hasNdk: !!ndk,
+        isLoading,
+        isSearching
+      });
+      
       if (queryParam && isLoggedIn && ndk && !isLoading && !isSearching) {
-        console.log('Found search query in URL, executing search:', queryParam);
-        await searchNostr(queryParam);
+        debug('NostrProvider', 'Executing search from URL param:', queryParam);
+        await searchNostr(queryParam, 'web-of-trust', false);
       }
     };
 
@@ -148,7 +186,7 @@ function NostrProviderContent({ children }: { children: ReactNode }) {
   };
 
   // Track which relays are connected
-  const trackConnectedRelays = (url: string, connected: boolean, status: RelayStatus['status']) => {
+  const trackConnectedRelays = (url: string, connected: boolean, status: NDKRelayStatus) => {
     if (!url) return;
 
     // Normalize the URL by removing trailing slashes
@@ -182,46 +220,77 @@ function NostrProviderContent({ children }: { children: ReactNode }) {
   // Initialize NDK without default relays
   useEffect(() => {
     const init = async () => {
+      debug('NostrProvider', 'Initializing NDK');
       try {
-        // Create a new NDK instance with default relays for initial connection
+        // Create cache adapter if in browser
+        let cacheAdapter: NDKCacheAdapter | undefined;
+        if (typeof window !== 'undefined') {
+          debug('NostrProvider', 'Creating cache adapter');
+          cacheAdapter = new NDKCacheAdapterDexie({ dbName: "narrr" });
+        }
+
+        debug('NostrProvider', 'Creating NDK instance with config:', {
+          explicitRelayUrls: DEFAULT_RELAY_URLS,
+          outboxRelayUrls: OUTBOX_RELAY_URLS,
+          hasCacheAdapter: !!cacheAdapter,
+          isDevelopment: process.env.NODE_ENV === 'development'
+        });
+
+        // Create a new NDK instance with caching and outbox model
         const ndkInstance = new NDK({
           explicitRelayUrls: DEFAULT_RELAY_URLS,
+          outboxRelayUrls: OUTBOX_RELAY_URLS,
+          autoConnectUserRelays: true,
+          autoFetchUserMutelist: true,
+          enableOutboxModel: true,
+          cacheAdapter: cacheAdapter,
+          clientName: "Narrr web",
+          clientNip89: "31990:fa984bd7dbb282f07e16e7ae87b26a2a7b9b90b7246a44771f0cf5ae58018f52:1731850618505"
         });
         
+        debug('NostrProvider', 'Setting up relay connection listeners');
         // Set up relay connection listeners
         ndkInstance.pool.on('relay:connect', (relay: NDKRelay) => {
-          trackConnectedRelays(relay.url, true, 'connected');
+          debug('NostrProvider', 'Relay connected:', relay.url);
+          trackConnectedRelays(relay.url, true, relay.status);
         });
 
         ndkInstance.pool.on('relay:disconnect', (relay: NDKRelay) => {
-          trackConnectedRelays(relay.url, false, 'disconnected');
+          debug('NostrProvider', 'Relay disconnected:', relay.url);
+          trackConnectedRelays(relay.url, false, relay.status);
         });
 
         ndkInstance.pool.on('relay:connecting', (relay: NDKRelay) => {
-          trackConnectedRelays(relay.url, false, 'connecting');
+          debug('NostrProvider', 'Relay connecting:', relay.url);
+          trackConnectedRelays(relay.url, false, relay.status);
         });
         
+        debug('NostrProvider', 'Connecting to NDK');
         await ndkInstance.connect();
         setNdk(ndkInstance);
         
         // Initialize with default relays, ensuring no duplicates
         const uniqueDefaultRelays = Array.from(new Set(DEFAULT_RELAY_URLS.map(url => url.replace(/\/+$/, ''))));
+        debug('NostrProvider', 'Setting up default relays:', uniqueDefaultRelays);
         setRelays(uniqueDefaultRelays.map(url => ({
           url,
           connected: false,
-          status: 'connecting',
+          status: NDKRelayStatus.CONNECTING,
         })));
         setIsUsingCustomRelays(false);
         
         // Check if user was previously logged in
         const wasLoggedIn = checkSavedLoginState();
+        debug('NostrProvider', 'Previous login state:', wasLoggedIn);
         
         // Check if user is already logged in or was logged in before
         if (hasNostrExtension() && (wasLoggedIn || hasNostrExtension())) {
+          debug('NostrProvider', 'Attempting auto-login');
           const signer = new NDKNip07Signer();
           ndkInstance.signer = signer;
           try {
             const user = await signer.user();
+            debug('NostrProvider', 'Auto-login successful:', user.pubkey);
             setUser(user);
             setIsLoggedIn(true);
             saveLoginState(true);
@@ -232,15 +301,18 @@ function NostrProviderContent({ children }: { children: ReactNode }) {
             // Fetch user's contact list on auto-login
             await fetchUserContactList(ndkInstance, user);
           } catch (e) {
+            debug('NostrProvider', 'Auto-login failed:', e);
             console.error('Failed to get user:', e);
             // Clear saved login state if automatic login fails
             saveLoginState(false);
           }
         }
       } catch (error) {
+        debug('NostrProvider', 'NDK initialization failed:', error);
         console.error('Failed to initialize NDK:', error);
       } finally {
         setIsLoading(false);
+        debug('NostrProvider', 'Initialization complete');
       }
     };
 
@@ -250,6 +322,19 @@ function NostrProviderContent({ children }: { children: ReactNode }) {
   // Fetch and connect to user's relays
   const fetchUserRelays = async (ndkInstance: NDK, user: NDKUser) => {
     try {
+      // In development mode, only use relay.nostr.band
+      if (process.env.NODE_ENV === 'development') {
+        debug('NostrProvider', 'Development mode: using only relay.nostr.band');
+        const devRelay = {
+          url: 'wss://relay.nostr.band',
+          connected: false,
+          status: NDKRelayStatus.CONNECTING
+        };
+        setRelays([devRelay]);
+        setIsUsingCustomRelays(false);
+        return;
+      }
+
       // Get user's relay list
       const userRelayList = await getRelayListForUser(user.pubkey, ndkInstance);
       
@@ -293,7 +378,7 @@ function NostrProviderContent({ children }: { children: ReactNode }) {
             return existingRelay || {
               url,
               connected: false,
-              status: 'connecting' as const
+              status: NDKRelayStatus.CONNECTING
             };
           });
           
@@ -398,7 +483,7 @@ function NostrProviderContent({ children }: { children: ReactNode }) {
     setRelays(DEFAULT_RELAY_URLS.map(url => ({
       url,
       connected: false,
-      status: 'connecting',
+      status: NDKRelayStatus.CONNECTING,
     })));
   };
 
@@ -430,117 +515,127 @@ function NostrProviderContent({ children }: { children: ReactNode }) {
   };
 
   // Search function using NIP-50
-  const searchNostr = async (query: string, sortBy: 'web-of-trust' | 'recent' | 'oldest' = 'web-of-trust'): Promise<NDKEvent[]> => {
-    if (!ndk || !query.trim()) {
+  const searchNostr = async (query: string, sortBy: 'web-of-trust' | 'recent' | 'oldest', showOnlyMyStuff: boolean) => {
+    debug('NostrProvider', 'Starting search:', { query, sortBy, showOnlyMyStuff });
+    
+    if (!query.trim()) {
+      debug('NostrProvider', 'Empty query, clearing results');
+      setSearchResults([]);
       return [];
     }
 
-    // Update the current query
-    setCurrentQuery(query);
-
-    // Update URL with the search query without refreshing the page
-    const newUrl = new URL(window.location.href);
-    newUrl.searchParams.set('q', query);
-    window.history.pushState({}, '', newUrl.toString());
-    
-    // If there's an active subscription, completely abort the previous search
-    if (activeSubscription || isSearching) {
-      console.log('Aborting previous search to start new search...');
-      if (activeSubscription) {
-        activeSubscription.stop();
-        setActiveSubscription(null);
-      }
-      // Ensure we reset the searching state properly
-      setIsSearching(false);
-      // Small delay to ensure clean state before starting new search
-      await new Promise(resolve => setTimeout(resolve, 10));
+    if (!ndk) {
+      debug('NostrProvider', 'NDK not initialized');
+      return [];
     }
 
+    // Cancel any ongoing search before starting a new one
+    debug('NostrProvider', 'Cancelling previous search');
+    searchAbortController.current.abort();
+    searchAbortController.current = new AbortController();
+
+    // Set searching state to true
     setIsSearching(true);
     setSearchResults([]);
     
     try {
-      console.log('Searching for:', query);
-      
-      // Set up the search
-      const results: NDKEvent[] = [];
-      
-      // Create a filter for NIP-50 search - explicitly setting kind: 1 for notes
-      const filter = { kinds: [1], search: query };
-      
-      // Log which relays we're using for the search (either user's preferred or default)
-      if (ndk.pool?.relays) {
-        const connectedRelays = Array.from(ndk.pool.relays.entries())
-          .filter(([, relay]) => relay.status === 1) // 1 is connected status in NDK
-          .map(([url]) => url);
-        
-        console.log('Using connected relays for search:', connectedRelays);
-        console.log('Using custom relays:', isUsingCustomRelays);
-      }
-      
-      // Subscribe to search events with all available relays
-      const subscription = ndk.subscribe([filter], { 
-        closeOnEose: true 
-      });
-      
-      // Store the active subscription
-      setActiveSubscription(subscription);
+      const searchQuery = query.trim();
+      setCurrentQuery(searchQuery);
 
-      // Set a timeout to automatically stop the search after 42 seconds
-      const searchTimeout = setTimeout(() => {
-        console.log('Search timeout reached, stopping search automatically');
-        if (subscription) {
-          subscription.stop();
-          setIsSearching(false);
-        }
-      }, 42000);
+      // Get the current user's pubkey if showOnlyMyStuff is true
+      const currentUserPubkey = showOnlyMyStuff ? ndk?.activeUser?.pubkey : undefined;
+      debug('NostrProvider', 'Search params:', { searchQuery, currentUserPubkey });
+
+      // Log relay status
+      debug('NostrProvider', 'Current relay status:', relays.map(r => ({
+        url: r.url,
+        connected: r.connected,
+        status: r.status
+      })));
+
+      // Create a simpler filter first to test
+      const filter: NDKFilter = {
+        kinds: [1], // Just text notes for now
+        search: searchQuery,
+        limit: 100,
+        ...(currentUserPubkey ? { authors: [currentUserPubkey] } : {}),
+      };
+
+      debug('NostrProvider', 'Fetching events with filter:', filter);
       
-      return new Promise<NDKEvent[]>((resolve) => {
-        subscription.on('event', (event: NDKEvent, relay?: NDKRelay) => {
-          console.log('Received search result:', event.id, relay ? `from ${relay.url}` : '');
-          
-          // Track which relay this event came from
-          if (relay) {
-            // Add the relay URL to the event's custom properties
-            if (!event.hasOwnProperty('_relays')) {
-              // @ts-expect-error - Adding custom property to track relays
-              event._relays = new Set<string>();
-            }
-            // @ts-expect-error - Add this relay to the set
-            event._relays.add(relay.url);
-          }
-          
-          // Add this event to our results
-          results.push(event);
-          // Sort and update the search results state in real-time
-          const sortedResults = sortSearchResults(results, sortBy);
-          setSearchResults(sortedResults);
+      // Get events from relays with timeout
+      const events = await Promise.race([
+        ndk.fetchEvents(filter),
+        new Promise<Set<NDKEvent>>((_, reject) => 
+          setTimeout(() => reject(new Error('Search timeout')), 10000)
+        )
+      ]);
+
+      if (!events) {
+        debug('NostrProvider', 'No events found');
+        setSearchResults([]);
+        return [];
+      }
+
+      // Convert events to array and sort them
+      let sortedEvents = Array.from(events);
+      debug('NostrProvider', `Found ${sortedEvents.length} events, sorting by ${sortBy}`);
+
+      if (sortedEvents.length === 0) {
+        debug('NostrProvider', 'No events found after conversion');
+        setSearchResults([]);
+        return [];
+      }
+
+      // Log some sample events for debugging
+      debug('NostrProvider', 'Sample events:', sortedEvents.slice(0, 3).map(e => ({
+        id: e.id,
+        pubkey: e.pubkey,
+        content: e.content.substring(0, 50) + '...',
+        created_at: e.created_at
+      })));
+
+      if (sortBy === 'web-of-trust') {
+        // Sort by web of trust (number of likes)
+        sortedEvents.sort((a, b) => {
+          const aLikes = a.tags.filter(tag => tag[0] === 'p' && tag[3] === 'like').length;
+          const bLikes = b.tags.filter(tag => tag[0] === 'p' && tag[3] === 'like').length;
+          return bLikes - aLikes;
         });
-        
-        subscription.on('eose', async () => {
-          console.log('Search complete, found:', results.length);
-          
-          // Clear the timeout since search completed naturally
-          clearTimeout(searchTimeout);
-          
-          // After getting all results, fetch author profiles
-          if (results.length > 0) {
-            await fetchProfilesForAuthors(results);
-          }
-          
-          setIsSearching(false);
-          setActiveSubscription(null);
-          // Do one final sort before completing
-          const sortedResults = sortSearchResults(results, sortBy);
-          resolve(sortedResults);
-        });
-      });
+      } else if (sortBy === 'recent') {
+        // Sort by most recent first
+        sortedEvents.sort((a, b) => b.created_at! - a.created_at!);
+      } else if (sortBy === 'oldest') {
+        // Sort by oldest first
+        sortedEvents.sort((a, b) => a.created_at! - b.created_at!);
+      }
+
+      debug('NostrProvider', 'Search complete, setting results');
+      setSearchResults(sortedEvents);
+      return sortedEvents;
     } catch (error) {
-      console.error('Search failed:', error);
-      setIsSearching(false);
-      setActiveSubscription(null);
+      if (error instanceof Error) {
+        if (error.name === 'AbortError') {
+          debug('NostrProvider', 'Search aborted');
+        } else {
+          debug('NostrProvider', 'Search error:', error);
+          console.error('Error searching Nostr:', error);
+        }
+      }
+      setSearchResults([]);
       return [];
+    } finally {
+      setIsSearching(false);
+      debug('NostrProvider', 'Search finished');
     }
+  };
+
+  // Stop search function
+  const stopSearch = () => {
+    debug('NostrProvider', 'Stopping search');
+    searchAbortController.current.abort();
+    searchAbortController.current = new AbortController();
+    setIsSearching(false);
   };
 
   // Fetch profile function with caching
@@ -615,72 +710,39 @@ function NostrProviderContent({ children }: { children: ReactNode }) {
       const batchSize = 20;
       
       for (let i = 0; i < authors.length; i += batchSize) {
-        console.log(`Fetching profiles batch ${i / batchSize + 1}/${Math.ceil(authors.length / batchSize)}`);
-        
+        console.log(`Fetching profiles for authors... batch ${i / batchSize + 1}`);
         const batch = authors.slice(i, i + batchSize);
-        const profilePromises = batch.map(async author => {
-          try {
-            await author.fetchProfile();
-            // Add to cache
-            setProfileCache(prev => {
-              const newCache = new Map(prev);
-              newCache.set(author.pubkey, author);
-              return newCache;
-            });
-            return author;
-          } catch (error) {
-            console.warn(`Failed to fetch profile for ${author.pubkey}:`, error);
-            return null;
-          }
-        });
-        
-        await Promise.all(profilePromises);
+        await Promise.all(batch.map(async user => {
+          await getProfile(user.pubkey);
+        }));
       }
-      
-      // Update event authors with fetched profiles
-      for (const event of events) {
-        if ((!event.author || !event.author.profile) && event.pubkey) {
-          // Check if it's the current user
-          if (user && event.pubkey === user.pubkey) {
-            event.author = user;
-          } else {
-            // Look up in cache first
-            const cachedUser = profileCache.get(event.pubkey);
-            if (cachedUser) {
-              event.author = cachedUser;
-            } else {
-              // Create a new user as fallback
-              const ndkUser = new NDKUser({ pubkey: event.pubkey });
-              ndkUser.ndk = ndk;
-              event.author = ndkUser;
-            }
-          }
-        }
-      }
-      
-      console.log('Finished fetching author profiles');
-      
-      // Update the search results state to trigger a re-render
-      const sortedResults = sortSearchResults([...events]);
-      setSearchResults(sortedResults);
-      
     } catch (error) {
-      console.error('Error fetching author profiles:', error);
+      console.error('Failed to fetch profiles for authors:', error);
     }
   };
 
-  // Function to stop the search
-  const stopSearch = () => {
-    if (activeSubscription || isSearching) {
-      console.log('Stopping search...');
-      if (activeSubscription) {
-        activeSubscription.stop();
-        setActiveSubscription(null);
+  // Update relay status handling
+  const updateRelayStatus = (relay: NDKRelay) => {
+    setRelays(prev => {
+      const newRelays = [...prev];
+      const existingIndex = newRelays.findIndex(r => r.url === relay.url);
+      
+      if (existingIndex >= 0) {
+        newRelays[existingIndex] = {
+          url: relay.url,
+          connected: relay.status === NDKRelayStatus.CONNECTED,
+          status: relay.status
+        };
+      } else {
+        newRelays.push({
+          url: relay.url,
+          connected: relay.status === NDKRelayStatus.CONNECTED,
+          status: relay.status
+        });
       }
-      // Always update the searching state
-      setIsSearching(false);
-      console.log('Search stopped');
-    }
+      
+      return newRelays;
+    });
   };
 
   return (
@@ -711,19 +773,4 @@ function NostrProviderContent({ children }: { children: ReactNode }) {
   );
 }
 
-// Main Provider component wrapped in Suspense
-export const NostrProvider = ({ children }: { children: ReactNode }) => {
-  return (
-    <Suspense fallback={
-      <div className="min-h-screen flex flex-col items-center justify-center p-8 text-center bg-black">
-        <div className="cyber-spinner mb-4">
-          <div className="cyber-spinner-polygon"></div>
-          <div className="cyber-spinner-polygon"></div>
-        </div>
-        <p className="text-purple-400 font-mono">LOADING...</p>
-      </div>
-    }>
-      <NostrProviderContent>{children}</NostrProviderContent>
-    </Suspense>
-  );
-}; 
+export default NostrProviderContent;
