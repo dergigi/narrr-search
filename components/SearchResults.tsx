@@ -14,7 +14,43 @@ function SearchResultsContent() {
   const [initialized, setInitialized] = useState(false);
   const [authorProfiles, setAuthorProfiles] = useState<Map<string, NDKUser | null>>(new Map());
   const [showShareMessage, setShowShareMessage] = useState(false);
+  const [sortBy, setSortBy] = useState<'web-of-trust' | 'recent' | 'oldest'>('web-of-trust');
   const searchParams = useSearchParams();
+  
+  // Sort function for search results based on the specified criteria
+  const sortSearchResults = (results: NDKEvent[], sortBy: 'web-of-trust' | 'recent' | 'oldest'): NDKEvent[] => {
+    return [...results].sort((a, b) => {
+      if (sortBy === 'web-of-trust') {
+        // User's own notes come first
+        if (user && a.pubkey === user.pubkey && b.pubkey !== user.pubkey) {
+          return -1;
+        }
+        if (user && a.pubkey !== user.pubkey && b.pubkey === user.pubkey) {
+          return 1;
+        }
+        
+        // Notes from followed users come next
+        const aIsFollowed = userFollows.has(a.pubkey);
+        const bIsFollowed = userFollows.has(b.pubkey);
+        
+        if (aIsFollowed && !bIsFollowed) {
+          return -1;
+        }
+        if (!aIsFollowed && bIsFollowed) {
+          return 1;
+        }
+        
+        // For notes with same trust level, sort by creation time, newest first
+        return (b.created_at || 0) - (a.created_at || 0);
+      } else if (sortBy === 'recent') {
+        // Sort by creation time, newest first
+        return (b.created_at || 0) - (a.created_at || 0);
+      } else {
+        // Sort by creation time, oldest first
+        return (a.created_at || 0) - (b.created_at || 0);
+      }
+    });
+  };
   
   // Determine if we have an active search to show share button
   const hasActiveSearch = currentQuery.trim() !== '' && searchParams?.has('q');
@@ -22,13 +58,14 @@ function SearchResultsContent() {
   // Update display results whenever searchResults changes
   useEffect(() => {
     console.log('Search results updated:', searchResults.length);
-    // Limit results to 420 notes
-    setDisplayResults(searchResults.slice(0, 420));
+    // Limit results to 420 notes and sort them
+    const sortedResults = sortSearchResults(searchResults, sortBy);
+    setDisplayResults(sortedResults.slice(0, 420));
     
     if (searchResults.length > 0 && !initialized) {
       setInitialized(true);
     }
-  }, [searchResults]);
+  }, [searchResults, sortBy]);
 
   // Handle share button click
   const handleShare = () => {
@@ -653,63 +690,85 @@ function SearchResultsContent() {
   };
 
   return (
-    <div className="w-full max-w-2xl mx-auto my-8 space-y-6">
-      {showShareMessage && (
-        <div className="fixed top-5 right-5 bg-purple-900/80 text-white px-4 py-2 rounded-md shadow-lg border border-purple-500/50 z-50 font-mono text-sm animation-fade-in">
-          Search URL copied to clipboard!
-        </div>
-      )}
-      
-      <div className="flex justify-between items-center mb-4 cyber-border py-2 px-4 rounded-md">
-        <div className="flex items-center">
-          <h2 className="text-lg font-mono text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-purple-600 flex items-center">
-            RESULTS<span className="ml-2">[{displayResults.length}{searchResults.length > 420 ? ` of ${searchResults.length}` : ''}]</span>
-          </h2>
+    <div className="w-full max-w-2xl mx-auto my-8">
+      <div className="flex flex-col gap-4">
+        <div className="flex justify-between items-center p-4 cyber-border rounded-lg">
+          <div className="text-purple-400 font-mono">
+            {displayResults.length} {displayResults.length === 1 ? 'RESULT' : 'RESULTS'}
+          </div>
           {hasActiveSearch && (
-            <button 
+            <button
               onClick={handleShare}
-              className="ml-3 flex items-center text-purple-400 hover:text-purple-300 transition-colors duration-200 p-1 rounded"
-              title="Share this search"
+              className="flex items-center gap-2 px-3 py-1.5 bg-purple-600 text-white rounded-md hover:bg-purple-700 transition-colors"
             >
               <ShareIcon className="h-4 w-4" />
+              SHARE
             </button>
           )}
         </div>
-        {isSearching && (
-          <div className="flex items-center">
-            <div className="w-3 h-3 bg-purple-500 rounded-full mr-2 animate-pulse"></div>
-            <span className="text-xs text-purple-400 font-mono">SEARCHING...</span>
-          </div>
-        )}
-      </div>
-      
-      <div className="space-y-4">
-        {displayResults.map((event, index) => (
-          <div 
-            key={event.id} 
-            className={`cyber-border rounded-lg p-4 transition-all duration-300 hover:shadow-lg hover:shadow-purple-900/30 ${
-              user && event.pubkey === user.pubkey 
-                ? 'border-l-4 border-l-purple-500 bg-gradient-to-r from-purple-900/20 to-gray-900/70' 
-                : userFollows.has(event.pubkey)
-                  ? 'border-l-4 border-l-blue-400 bg-gradient-to-r from-blue-900/20 to-gray-900/70'
-                  : 'bg-gray-900/70'
-            }`}
-            style={{ animationDelay: `${index * 100}ms` }}
+        
+        <div className="flex justify-end">
+          <select
+            value={sortBy}
+            onChange={(e) => {
+              const newSortBy = e.target.value as 'web-of-trust' | 'recent' | 'oldest';
+              setSortBy(newSortBy);
+              // Re-sort the current results
+              const sortedResults = sortSearchResults(displayResults, newSortBy);
+              setDisplayResults(sortedResults);
+            }}
+            className="px-4 py-2 bg-black border border-purple-500 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
           >
-            <div className="flex justify-between items-start mb-2">
-              <div className="flex items-center">
-                {/* Profile picture */}
-                <div className="mr-3">
-                  {getProfilePicture(event) ? (
-                    <div className="w-10 h-10 rounded-lg overflow-hidden border-2 border-purple-500/50 shadow-lg shadow-purple-900/30 bg-black">
-                      {(() => {
-                        const profileUrl = getProfileUrl(event);
-                        return profileUrl ? (
-                          <a href={profileUrl} target="_blank" rel="noopener noreferrer" title="View profile on nosta.me">
+            <option value="web-of-trust">Web of Trust</option>
+            <option value="recent">Most Recent</option>
+            <option value="oldest">Oldest First</option>
+          </select>
+        </div>
+
+        <div className="space-y-4">
+          {displayResults.map((event, index) => (
+            <div 
+              key={event.id} 
+              className={`cyber-border rounded-lg p-4 transition-all duration-300 hover:shadow-lg hover:shadow-purple-900/30 ${
+                user && event.pubkey === user.pubkey 
+                  ? 'border-l-4 border-l-purple-500 bg-gradient-to-r from-purple-900/20 to-gray-900/70' 
+                  : userFollows.has(event.pubkey)
+                    ? 'border-l-4 border-l-blue-400 bg-gradient-to-r from-blue-900/20 to-gray-900/70'
+                    : 'bg-gray-900/70'
+              }`}
+              style={{ animationDelay: `${index * 100}ms` }}
+            >
+              <div className="flex justify-between items-start mb-2">
+                <div className="flex items-center">
+                  {/* Profile picture */}
+                  <div className="mr-3">
+                    {getProfilePicture(event) ? (
+                      <div className="w-10 h-10 rounded-lg overflow-hidden border-2 border-purple-500/50 shadow-lg shadow-purple-900/30 bg-black">
+                        {(() => {
+                          const profileUrl = getProfileUrl(event);
+                          return profileUrl ? (
+                            <a href={profileUrl} target="_blank" rel="noopener noreferrer" title="View profile on nosta.me">
+                              <img 
+                                src={getProfilePicture(event) || ''} 
+                                alt={getAuthorName(event)} 
+                                className="w-full h-full object-cover hover:opacity-80 transition-opacity duration-200"
+                                onError={(e) => {
+                                  // If image fails to load, show fallback
+                                  const target = e.target as HTMLImageElement;
+                                  target.style.display = 'none';
+                                  const parent = target.parentElement;
+                                  if (parent) {
+                                    parent.classList.add('flex', 'items-center', 'justify-center', 'bg-purple-900/30');
+                                    parent.innerHTML = `<span class="text-purple-300 text-sm font-mono">${getAuthorName(event).slice(0, 2).toUpperCase()}</span>`;
+                                  }
+                                }}
+                              />
+                            </a>
+                          ) : (
                             <img 
                               src={getProfilePicture(event) || ''} 
                               alt={getAuthorName(event)} 
-                              className="w-full h-full object-cover hover:opacity-80 transition-opacity duration-200"
+                              className="w-full h-full object-cover"
                               onError={(e) => {
                                 // If image fails to load, show fallback
                                 const target = e.target as HTMLImageElement;
@@ -721,126 +780,110 @@ function SearchResultsContent() {
                                 }
                               }}
                             />
-                          </a>
-                        ) : (
-                          <img 
-                            src={getProfilePicture(event) || ''} 
-                            alt={getAuthorName(event)} 
-                            className="w-full h-full object-cover"
-                            onError={(e) => {
-                              // If image fails to load, show fallback
-                              const target = e.target as HTMLImageElement;
-                              target.style.display = 'none';
-                              const parent = target.parentElement;
-                              if (parent) {
-                                parent.classList.add('flex', 'items-center', 'justify-center', 'bg-purple-900/30');
-                                parent.innerHTML = `<span class="text-purple-300 text-sm font-mono">${getAuthorName(event).slice(0, 2).toUpperCase()}</span>`;
-                              }
-                            }}
-                          />
-                        );
-                      })()}
-                    </div>
-                  ) : (
-                    <div className="w-10 h-10 rounded-lg border-2 border-purple-500/50 shadow-lg shadow-purple-900/30 flex items-center justify-center bg-purple-900/30">
+                          );
+                        })()}
+                      </div>
+                    ) : (
+                      <div className="w-10 h-10 rounded-lg border-2 border-purple-500/50 shadow-lg shadow-purple-900/30 flex items-center justify-center bg-purple-900/30">
+                        {(() => {
+                          const profileUrl = getProfileUrl(event);
+                          return profileUrl ? (
+                            <a href={profileUrl} target="_blank" rel="noopener noreferrer" title="View profile on nosta.me">
+                              <UserCircleIcon className="w-6 h-6 text-purple-300 hover:text-purple-400 transition-colors duration-200" />
+                            </a>
+                          ) : (
+                            <UserCircleIcon className="w-6 h-6 text-purple-300" />
+                          );
+                        })()}
+                      </div>
+                    )}
+                  </div>
+
+                  <div>
+                    <div className="font-medium text-purple-400 font-mono flex items-center gap-1">
                       {(() => {
                         const profileUrl = getProfileUrl(event);
+                        const authorName = getAuthorName(event);
                         return profileUrl ? (
-                          <a href={profileUrl} target="_blank" rel="noopener noreferrer" title="View profile on nosta.me">
-                            <UserCircleIcon className="w-6 h-6 text-purple-300 hover:text-purple-400 transition-colors duration-200" />
+                          <a 
+                            href={profileUrl} 
+                            target="_blank" 
+                            rel="noopener noreferrer" 
+                            className="max-w-[200px] truncate hover:text-purple-300 transition-colors duration-200"
+                            title="View profile on nosta.me"
+                          >
+                            {authorName}
                           </a>
                         ) : (
-                          <UserCircleIcon className="w-6 h-6 text-purple-300" />
+                          <span className="max-w-[200px] truncate">{authorName}</span>
                         );
                       })()}
+                      {renderVerificationStatus(event)}
                     </div>
-                  )}
+                    <div className="text-xs text-purple-300 font-mono flex items-center">
+                      <span className="inline-block w-2 h-2 bg-purple-500 mr-2"></span>
+                      {getNoteType(event)}
+                    </div>
+                  </div>
                 </div>
-
-                <div>
-                  <div className="font-medium text-purple-400 font-mono flex items-center gap-1">
-                    {(() => {
-                      const profileUrl = getProfileUrl(event);
-                      const authorName = getAuthorName(event);
-                      return profileUrl ? (
+                <div className="text-xs text-gray-400 font-mono">
+                  {(() => {
+                    const noteUrl = getNoteUrl(event);
+                    if (typeof noteUrl === 'string') {
+                      return (
                         <a 
-                          href={profileUrl} 
+                          href={noteUrl} 
                           target="_blank" 
-                          rel="noopener noreferrer" 
-                          className="max-w-[200px] truncate hover:text-purple-300 transition-colors duration-200"
-                          title="View profile on nosta.me"
+                          rel="noopener noreferrer"
+                          className="hover:text-purple-400 transition-colors duration-200"
+                          title="View on njump.me"
                         >
-                          {authorName}
+                          {getTimeAgo(event)}
                         </a>
-                      ) : (
-                        <span className="max-w-[200px] truncate">{authorName}</span>
                       );
-                    })()}
-                    {renderVerificationStatus(event)}
-                  </div>
-                  <div className="text-xs text-purple-300 font-mono flex items-center">
-                    <span className="inline-block w-2 h-2 bg-purple-500 mr-2"></span>
-                    {getNoteType(event)}
-                  </div>
+                    } else {
+                      return getTimeAgo(event);
+                    }
+                  })()}
                 </div>
               </div>
-              <div className="text-xs text-gray-400 font-mono">
-                {(() => {
-                  const noteUrl = getNoteUrl(event);
-                  if (typeof noteUrl === 'string') {
-                    return (
-                      <a 
-                        href={noteUrl} 
-                        target="_blank" 
-                        rel="noopener noreferrer"
-                        className="hover:text-purple-400 transition-colors duration-200"
-                        title="View on njump.me"
+              
+              {/* Warning for unverified users - don't show for YOUR_NOTE */}
+              {!isNip05Verified(event) && !getNip05Name(event) && user?.pubkey !== event.pubkey && (
+                <div className="mb-3 p-2 border border-red-500/30 bg-red-900/20 rounded flex items-center text-sm">
+                  <ShieldExclamationIcon className="w-5 h-5 text-red-400 mr-2 flex-shrink-0" />
+                  <span className="text-red-300 font-mono text-xs">WARNING: UNVERIFIED USER - POTENTIAL SCAMMER. VERIFY IDENTITY BEFORE TRUSTING CONTENT.</span>
+                </div>
+              )}
+              
+              <div className="text-gray-300 font-light whitespace-pre-wrap break-words bg-black/20 p-3 rounded">
+                {renderContent(event.content)}
+              </div>
+              
+              {/* Render inline media content */}
+              {renderMedia(event)}
+              
+              {/* Render SHA256 hash color squares if present */}
+              {renderHashColors(event.content)}
+              
+              {event.tags?.length > 0 && (
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {event.tags
+                    .filter((tag: string[]) => tag[0] === 't')
+                    .map((tag: string[], i: number) => (
+                      <button 
+                        key={i} 
+                        onClick={() => searchNostr(`#${tag[1]}`)}
+                        className="inline-block bg-purple-900/30 border border-purple-500/30 rounded-md px-3 py-0.5 text-xs font-mono text-purple-300 cursor-pointer hover:bg-purple-800/40 hover:border-purple-400/40 transition-colors duration-200"
                       >
-                        {getTimeAgo(event)}
-                      </a>
-                    );
-                  } else {
-                    return getTimeAgo(event);
-                  }
-                })()}
-              </div>
+                        #{tag[1]}
+                      </button>
+                    ))}
+                </div>
+              )}
             </div>
-            
-            {/* Warning for unverified users - don't show for YOUR_NOTE */}
-            {!isNip05Verified(event) && !getNip05Name(event) && user?.pubkey !== event.pubkey && (
-              <div className="mb-3 p-2 border border-red-500/30 bg-red-900/20 rounded flex items-center text-sm">
-                <ShieldExclamationIcon className="w-5 h-5 text-red-400 mr-2 flex-shrink-0" />
-                <span className="text-red-300 font-mono text-xs">WARNING: UNVERIFIED USER - POTENTIAL SCAMMER. VERIFY IDENTITY BEFORE TRUSTING CONTENT.</span>
-              </div>
-            )}
-            
-            <div className="text-gray-300 font-light whitespace-pre-wrap break-words bg-black/20 p-3 rounded">
-              {renderContent(event.content)}
-            </div>
-            
-            {/* Render inline media content */}
-            {renderMedia(event)}
-            
-            {/* Render SHA256 hash color squares if present */}
-            {renderHashColors(event.content)}
-            
-            {event.tags?.length > 0 && (
-              <div className="mt-3 flex flex-wrap gap-2">
-                {event.tags
-                  .filter((tag: string[]) => tag[0] === 't')
-                  .map((tag: string[], i: number) => (
-                    <button 
-                      key={i} 
-                      onClick={() => searchNostr(`#${tag[1]}`)}
-                      className="inline-block bg-purple-900/30 border border-purple-500/30 rounded-md px-3 py-0.5 text-xs font-mono text-purple-300 cursor-pointer hover:bg-purple-800/40 hover:border-purple-400/40 transition-colors duration-200"
-                    >
-                      #{tag[1]}
-                    </button>
-                  ))}
-              </div>
-            )}
-          </div>
-        ))}
+          ))}
+        </div>
       </div>
     </div>
   );
