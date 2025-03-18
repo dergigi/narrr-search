@@ -432,7 +432,7 @@ function NostrProviderContent({ children }: { children: ReactNode }) {
 
   // Search function using NIP-50
   const searchNostr = async (query: string): Promise<NDKEvent[]> => {
-    console.group('Nostr Search');
+    console.log('\n=== Starting Nostr Search ===');
     console.log('Query:', query);
     console.log('NDK Status:', {
       available: !!ndk,
@@ -442,7 +442,7 @@ function NostrProviderContent({ children }: { children: ReactNode }) {
     
     if (!query.trim() || !ndk) {
       console.log('Search aborted:', !query.trim() ? 'empty query' : 'no NDK instance');
-      console.groupEnd();
+      console.log('=== Search Ended ===\n');
       setSearchResults([]);
       return [];
     }
@@ -450,6 +450,14 @@ function NostrProviderContent({ children }: { children: ReactNode }) {
     setIsSearching(true);
     setCurrentQuery(query);
     setSearchResults([]);
+
+    // Set up a timeout for no results
+    const noResultsTimeout = setTimeout(() => {
+      if (searchResults.length === 0) {
+        console.log('No results found after 10 seconds');
+        console.log('=== Search Ended ===\n');
+      }
+    }, 10000);
 
     // Abort any ongoing search
     if (searchAbortController.current) {
@@ -495,7 +503,8 @@ function NostrProviderContent({ children }: { children: ReactNode }) {
       });
       
       setSearchResults(sortedResults);
-      console.groupEnd();
+      clearTimeout(noResultsTimeout);
+      console.log('=== Search Completed Successfully ===\n');
       return sortedResults;
     } catch (error) {
       if (error instanceof Error) {
@@ -506,12 +515,14 @@ function NostrProviderContent({ children }: { children: ReactNode }) {
         });
         if (error.name === 'AbortError') {
           console.log('Search aborted');
-          console.groupEnd();
+          clearTimeout(noResultsTimeout);
+          console.log('=== Search Ended ===\n');
           return [];
         }
       }
       console.error('Error searching Nostr:', error);
-      console.groupEnd();
+      clearTimeout(noResultsTimeout);
+      console.log('=== Search Ended with Error ===\n');
       setSearchResults([]);
       return [];
     } finally {
