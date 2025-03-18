@@ -57,12 +57,14 @@ export default function SearchComponent() {
 
   const handleSearch = async () => {
     if (!searchQuery.trim()) return;
-    try {
-      await searchNostr(searchQuery, 'web-of-trust');
-    } catch (error) {
-      console.error('Search failed:', error);
-      setError('Search failed. Please try again.');
-    }
+    
+    // Update URL with the search query without refreshing the page
+    const newUrl = new URL(window.location.href);
+    newUrl.searchParams.set('q', searchQuery);
+    window.history.pushState({}, '', newUrl.toString());
+    
+    // Execute search
+    await searchNostr(searchQuery);
   };
 
   const handleStopSearch = () => {
