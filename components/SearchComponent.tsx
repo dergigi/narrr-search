@@ -87,7 +87,6 @@ export default function SearchComponent() {
             className={`w-full p-4 pl-12 pr-16 rounded-lg bg-gray-900 text-gray-200 ${
               error ? 'border-red-500 focus:ring-red-500' : 'border-none focus:ring-purple-500/50'
             } focus:outline-none focus:ring-2 font-mono placeholder-gray-500`}
-            disabled={isSearching}
           />
         </div>
         <div className="absolute left-4 top-1/2 transform -translate-y-1/2 text-purple-500">
@@ -95,14 +94,14 @@ export default function SearchComponent() {
         </div>
         <button
           type="submit"
-          disabled={isSearching || !currentQuery.trim()}
+          disabled={!currentQuery.trim()}
           className={`absolute right-3 top-1/2 transform -translate-y-1/2 px-3 py-1.5 rounded-md transition-all duration-300 ${
-            isSearching || !currentQuery.trim()
+            !currentQuery.trim()
               ? 'bg-gray-700 text-gray-400 cursor-not-allowed'
               : 'bg-purple-600 text-white hover:bg-purple-700 hover:shadow-lg hover:shadow-purple-900/50 cyber-glow'
           }`}
         >
-          {isSearching ? 'SEARCHING' : 'SEARCH 🏴‍☠️'}
+          SEARCH
         </button>
       </form>
       
