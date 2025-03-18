@@ -47,6 +47,14 @@ export default function SearchComponent() {
     };
   }, [isSearching]);
 
+  // Update search input when URL query parameter changes
+  useEffect(() => {
+    const queryParam = searchParams?.get('q');
+    if (queryParam) {
+      setSearchQuery(queryParam);
+    }
+  }, [searchParams]);
+
   const handleSearch = async () => {
     if (!searchQuery.trim()) return;
     try {
