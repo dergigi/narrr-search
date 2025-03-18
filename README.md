@@ -1,4 +1,4 @@
-# NARRR - Narcissistic Relay-Related Search
+# NARRR
 
 A pirate-themed, cyberpunk search engine for the Nostr network built with Next.js and NDK (Nostr Development Kit). NARRR lets you search through the decentralized web of Nostr notes with style.
 

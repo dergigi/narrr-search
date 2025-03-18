@@ -20,7 +20,7 @@ export default function RelayStatus() {
       <div className="mb-3">
         <h3 className="text-sm font-mono font-medium text-purple-400 flex items-center">
           <span className="mr-2">&gt;</span>
-          {isUsingCustomRelays ? 'ACTIVE_RELAY_CONNECTIONS 🏴‍☠️' : 'RELAY_CONNECTIONS 🏴‍☠️'}
+          {isUsingCustomRelays ? 'ACTIVE_RELAY_CONNECTIONS' : 'RELAY_CONNECTIONS'}
         </h3>
       </div>
 

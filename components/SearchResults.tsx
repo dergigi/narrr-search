@@ -134,6 +134,7 @@ function SearchResultsContent() {
       if (user && event.pubkey === user.pubkey) {
         if (user.profile?.displayName) return user.profile.displayName;
         if (user.profile?.name) return user.profile.name;
+        return 'YOUR_NOTE';
       }
       
       // Check our local component cache first
@@ -662,7 +663,7 @@ function SearchResultsContent() {
       <div className="flex justify-between items-center mb-4 cyber-border py-2 px-4 rounded-md">
         <div className="flex items-center">
           <h2 className="text-lg font-mono text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-purple-600 flex items-center">
-            <span className="mr-2">🏴‍☠️</span>RESULTS<span className="ml-2">[{displayResults.length}{searchResults.length > 420 ? ` of ${searchResults.length}` : ''}]</span>
+            RESULTS<span className="ml-2">[{displayResults.length}{searchResults.length > 420 ? ` of ${searchResults.length}` : ''}]</span>
           </h2>
           {hasActiveSearch && (
             <button 

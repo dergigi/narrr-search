@@ -15,7 +15,7 @@ export default function MainContent() {
       
       <div className="flex justify-between items-center mb-8">
         <h1 className="text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-purple-600 font-mono cyber-glitch-text flex items-center">
-          <span className="mr-2">🏴‍☠️</span>NARRR<span className="ml-2">🏴‍☠️</span>
+          NARRR
         </h1>
         <div>
           <LoginButton />
