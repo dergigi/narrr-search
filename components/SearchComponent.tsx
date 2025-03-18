@@ -13,7 +13,6 @@ export default function SearchComponent() {
   const [countdown, setCountdown] = useState(21);
   const searchParams = useSearchParams();
   const [searchQuery, setSearchQuery] = useState('');
-  const [sortBy, setSortBy] = useState<'web-of-trust' | 'recent' | 'oldest'>('web-of-trust');
 
   // Check if we have a search parameter that needs to be reflected in the UI
   useEffect(() => {
@@ -51,7 +50,7 @@ export default function SearchComponent() {
   const handleSearch = async () => {
     if (!searchQuery.trim()) return;
     try {
-      await searchNostr(searchQuery, sortBy);
+      await searchNostr(searchQuery);
     } catch (error) {
       console.error('Search failed:', error);
       setError('Search failed. Please try again.');
@@ -79,31 +78,20 @@ export default function SearchComponent() {
             className="w-full px-4 py-2 bg-black border border-purple-500 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
           />
         </div>
-        <div className="flex gap-2">
-          <select
-            value={sortBy}
-            onChange={(e) => setSortBy(e.target.value as 'web-of-trust' | 'recent' | 'oldest')}
-            className="px-4 py-2 bg-black border border-purple-500 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-          >
-            <option value="web-of-trust">Web of Trust</option>
-            <option value="recent">Most Recent</option>
-            <option value="oldest">Oldest First</option>
-          </select>
-          <button
-            onClick={handleSearch}
-            disabled={isSearching}
-            className="px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 focus:ring-offset-black disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-          >
-            {isSearching ? (
-              <div className="flex items-center gap-2">
-                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                SEARCHING
-              </div>
-            ) : (
-              'SEARCH'
-            )}
-          </button>
-        </div>
+        <button
+          onClick={handleSearch}
+          disabled={isSearching}
+          className="px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 focus:ring-offset-black disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+        >
+          {isSearching ? (
+            <div className="flex items-center gap-2">
+              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+              SEARCHING
+            </div>
+          ) : (
+            'SEARCH'
+          )}
+        </button>
       </div>
       
       {error && (
