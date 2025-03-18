@@ -14,13 +14,15 @@ function SearchResultsContent() {
   const [initialized, setInitialized] = useState(false);
   const [authorProfiles, setAuthorProfiles] = useState<Map<string, NDKUser | null>>(new Map());
   const [showShareMessage, setShowShareMessage] = useState(false);
-  const [sortBy, setSortBy] = useState<'web-of-trust' | 'recent' | 'oldest'>('web-of-trust');
+  const [sortBy, setSortBy] = useState<'recent' | 'oldest'>('recent');
+  const [useWebOfTrust, setUseWebOfTrust] = useState(true);
   const searchParams = useSearchParams();
   
   // Sort function for search results based on the specified criteria
-  const sortSearchResults = (results: NDKEvent[], sortBy: 'web-of-trust' | 'recent' | 'oldest'): NDKEvent[] => {
+  const sortSearchResults = (results: NDKEvent[], sortBy: 'recent' | 'oldest', useWebOfTrust: boolean): NDKEvent[] => {
     return [...results].sort((a, b) => {
-      if (sortBy === 'web-of-trust') {
+      // First apply Web of Trust sorting if enabled
+      if (useWebOfTrust) {
         // User's own notes come first
         if (user && a.pubkey === user.pubkey && b.pubkey !== user.pubkey) {
           return -1;
@@ -39,14 +41,12 @@ function SearchResultsContent() {
         if (!aIsFollowed && bIsFollowed) {
           return 1;
         }
-        
-        // For notes with same trust level, sort by creation time, newest first
-        return (b.created_at || 0) - (a.created_at || 0);
-      } else if (sortBy === 'recent') {
-        // Sort by creation time, newest first
+      }
+      
+      // Then apply time-based sorting
+      if (sortBy === 'recent') {
         return (b.created_at || 0) - (a.created_at || 0);
       } else {
-        // Sort by creation time, oldest first
         return (a.created_at || 0) - (b.created_at || 0);
       }
     });
@@ -59,13 +59,21 @@ function SearchResultsContent() {
   useEffect(() => {
     console.log('Search results updated:', searchResults.length);
     // Limit results to 420 notes and sort them
-    const sortedResults = sortSearchResults(searchResults, sortBy);
+    const sortedResults = sortSearchResults(searchResults, sortBy, useWebOfTrust);
     setDisplayResults(sortedResults.slice(0, 420));
     
     if (searchResults.length > 0 && !initialized) {
       setInitialized(true);
     }
-  }, [searchResults, sortBy]);
+  }, [searchResults, sortBy, useWebOfTrust]);
+
+  // Update display results when sortBy or useWebOfTrust changes
+  useEffect(() => {
+    if (displayResults.length > 0) {
+      const sortedResults = sortSearchResults(displayResults, sortBy, useWebOfTrust);
+      setDisplayResults(sortedResults);
+    }
+  }, [sortBy, useWebOfTrust]);
 
   // Handle share button click
   const handleShare = () => {
@@ -707,19 +715,24 @@ function SearchResultsContent() {
           )}
         </div>
         
-        <div className="flex justify-end">
+        <div className="flex justify-between items-center">
+          <div className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              id="web-of-trust"
+              checked={useWebOfTrust}
+              onChange={(e) => setUseWebOfTrust(e.target.checked)}
+              className="w-4 h-4 text-purple-600 bg-black border-purple-500 rounded focus:ring-purple-500 focus:ring-offset-2 focus:ring-offset-black"
+            />
+            <label htmlFor="web-of-trust" className="text-sm text-purple-400 font-mono">
+              Web of Trust
+            </label>
+          </div>
           <select
             value={sortBy}
-            onChange={(e) => {
-              const newSortBy = e.target.value as 'web-of-trust' | 'recent' | 'oldest';
-              setSortBy(newSortBy);
-              // Re-sort the current results
-              const sortedResults = sortSearchResults(displayResults, newSortBy);
-              setDisplayResults(sortedResults);
-            }}
+            onChange={(e) => setSortBy(e.target.value as 'recent' | 'oldest')}
             className="px-4 py-2 bg-black border border-purple-500 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
           >
-            <option value="web-of-trust">Web of Trust</option>
             <option value="recent">Most Recent</option>
             <option value="oldest">Oldest First</option>
           </select>
